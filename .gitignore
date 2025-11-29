@@ -247,7 +247,6 @@ out/
 .vite/
 
 # Convex
-convex/_generated/
 .convex/
 
 # Testing
