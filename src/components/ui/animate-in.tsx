@@ -20,7 +20,7 @@ interface AnimateInProps {
   threshold?: number;
   stagger?: boolean;
   staggerDelay?: number;
-  as?: keyof JSX.IntrinsicElements;
+  as?: "div" | "section" | "article" | "main" | "header" | "footer" | "aside" | "nav" | "span" | "p";
 }
 
 export function AnimateIn({
@@ -92,7 +92,7 @@ export function AnimateIn({
   if (stagger && React.Children.count(children) > 0) {
     return (
       <Component
-        ref={ref as React.RefObject<HTMLDivElement>}
+        ref={ref}
         className={cn(className)}
       >
         {React.Children.map(children, (child, index) => {
@@ -120,7 +120,7 @@ export function AnimateIn({
 
   return (
     <Component
-      ref={ref as React.RefObject<HTMLDivElement>}
+      ref={ref}
       className={cn(
         className, 
         animationClass,

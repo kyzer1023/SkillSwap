@@ -56,7 +56,8 @@ export function ClipPathText({
 
   return (
     <Component
-      ref={ref as React.RefObject<HTMLSpanElement>}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={ref as React.LegacyRef<any>}
       className={cn("inline-flex flex-wrap", className)}
     >
       {words.map((word, wordIndex) => (
@@ -155,7 +156,8 @@ export function ClipPathGradientText({
 
   return (
     <Component
-      ref={ref as React.RefObject<HTMLSpanElement>}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ref={ref as React.LegacyRef<any>}
       className={cn("inline-flex flex-wrap", gradientClassName, className)}
     >
       {words.map((word, wordIndex) => (
