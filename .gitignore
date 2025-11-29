@@ -261,3 +261,5 @@ jest/
 
 # Sentry Config File
 .sentryclirc
+
+.env*.local
