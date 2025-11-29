@@ -1,0 +1,580 @@
+{
+  "project_title": "SkillSwap Network",
+  "team_name": "SkillSync",
+  "sdg_goal": "SDG 10: Reduced Inequalities",
+  "project_purpose": "To create a skill-based exchange network that promotes equal access to economic participation, allowing users to exchange services either via direct skill-swap or community credits.",
+  "scope": "prototype",
+  "notes": [
+    "This is a prototype build - non-functional requirements (security, scalability, performance) are deferred.",
+    "Focus is on core functional workflows and user interactions.",
+    "Target organization: Malaysian Ministry of Human Resources (MOHR) or community development organizations."
+  ],
+  "actors": [
+    {
+      "name": "User",
+      "description": "General registered user of the platform"
+    },
+    {
+      "name": "Service Provider",
+      "description": "User offering skills/services to others"
+    },
+    {
+      "name": "Service Requester",
+      "description": "User seeking skills/services from others"
+    },
+    {
+      "name": "Administrator",
+      "description": "Platform administrator with moderation and analytics access"
+    },
+    {
+      "name": "System",
+      "description": "Automated system processes (e.g., matching, fraud detection)"
+    }
+  ],
+  "modules": [
+    {
+      "module_name": "Profile and Portfolio Management",
+      "module_id": "01",
+      "description": "Allows users to showcase expertise and discover others.",
+      "features": [
+        {
+          "use_case_id": "UC1001",
+          "title": "Populate Profile Details",
+          "actor": "User",
+          "priority": "Must",
+          "precondition": "User is logged into the system",
+          "process_flow": "User navigates to 'My Profile' > Enters name, bio, and uploads profile picture > Clicks 'Save' > System reloads and displays updated profile page.",
+          "postcondition": "Profile information is saved and displayed publicly",
+          "acceptance_criteria": [
+            "User can edit name, bio, and profile picture",
+            "Changes are persisted after save",
+            "Updated profile is visible to other users"
+          ]
+        },
+        {
+          "use_case_id": "UC1002",
+          "title": "Manage Skills",
+          "actor": "Service Provider",
+          "priority": "Must",
+          "precondition": "User is logged in and has a profile",
+          "process_flow": "User navigates to 'Edit Profile' > Inputs skill (e.g., 'Python') > Selects expertise level (e.g., 'Beginner', 'Intermediate', 'Expert') > Clicks 'Add Skill' > System records skill and displays it on public profile.",
+          "postcondition": "Skill is added to user's profile and visible to others",
+          "acceptance_criteria": [
+            "User can add multiple skills",
+            "Each skill has an expertise level",
+            "Skills can be edited or removed",
+            "Skills are displayed on public profile"
+          ]
+        },
+        {
+          "use_case_id": "UC1003",
+          "title": "Manage Portfolio",
+          "actor": "Service Provider",
+          "priority": "Should",
+          "precondition": "User is logged in",
+          "process_flow": "User navigates to 'Edit Portfolio' > Clicks 'Upload', 'Edit', or 'Delete' for portfolio items (images/docs) > Clicks 'Save' > System updates portfolio display.",
+          "postcondition": "Portfolio items are updated and visible on profile",
+          "acceptance_criteria": [
+            "User can upload images and documents",
+            "User can edit portfolio item details",
+            "User can delete portfolio items",
+            "Portfolio is visible on public profile"
+          ]
+        },
+        {
+          "use_case_id": "UC1004",
+          "title": "Manage Service Listings",
+          "actor": "Service Provider",
+          "priority": "Should",
+          "precondition": "User is logged in and has at least one skill",
+          "process_flow": "User navigates to 'My Services' > Clicks 'Add Service' > Fills in service title, description, and preferred exchange mode (credits or direct swap) > System saves service listing.",
+          "postcondition": "Service listing is created and visible to other users",
+          "acceptance_criteria": [
+            "User can create service listings",
+            "Each listing has title, description, and exchange mode",
+            "User can edit or delete own listings",
+            "Listings are searchable by other users"
+          ]
+        },
+        {
+          "use_case_id": "UC1005",
+          "title": "View Others Profile",
+          "actor": "Service Requester",
+          "priority": "Must",
+          "precondition": "User is logged in",
+          "process_flow": "User clicks on another user's name/link > System loads profile > System displays bio, skills, portfolio, service listings, and reputation metrics.",
+          "postcondition": "Other user's profile information is displayed",
+          "acceptance_criteria": [
+            "User can view any public profile",
+            "Profile displays bio, skills, portfolio",
+            "Profile displays service listings",
+            "Profile displays reputation ratings"
+          ]
+        },
+        {
+          "use_case_id": "UC1006",
+          "title": "Manage External Links",
+          "actor": "Service Provider",
+          "priority": "Could",
+          "precondition": "User is logged in",
+          "process_flow": "User navigates to 'External Links' section > Pastes valid URL (e.g., LinkedIn, GitHub) > System validates and saves link > System displays it as a clickable icon.",
+          "postcondition": "External link is added to profile",
+          "acceptance_criteria": [
+            "User can add external links",
+            "System validates URL format",
+            "Links are displayed as clickable icons",
+            "User can remove links"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "Request Posting and Matching System",
+      "module_id": "02",
+      "description": "Enables users to post service requests and be automatically matched with relevant skill providers.",
+      "features": [
+        {
+          "use_case_id": "UC2001",
+          "title": "Posting Service Request",
+          "actor": "Service Requester",
+          "priority": "Must",
+          "precondition": "User is logged in",
+          "process_flow": "User navigates to 'Posting Request' > Fills details: title, description, skill needed, exchange mode > System stores request and lists it under active requests.",
+          "postcondition": "Service request is created and visible in the system",
+          "acceptance_criteria": [
+            "User can create a service request",
+            "Request includes title, description, required skill",
+            "User can select exchange mode (credit or skill swap)",
+            "Request appears in active requests list"
+          ]
+        },
+        {
+          "use_case_id": "UC2002",
+          "title": "Edit or Delete Own Request",
+          "actor": "Service Requester",
+          "priority": "Should",
+          "precondition": "User has created a service request",
+          "process_flow": "User navigates to 'My Requests' > Clicks 'Edit' or 'Delete' > System updates record or removes request > System refreshes list.",
+          "postcondition": "Request is updated or removed from the system",
+          "acceptance_criteria": [
+            "User can edit own requests",
+            "User can delete own requests",
+            "Changes are reflected immediately",
+            "Cannot edit/delete others' requests"
+          ]
+        },
+        {
+          "use_case_id": "UC2003",
+          "title": "View Posted Requests",
+          "actor": "User",
+          "priority": "Must",
+          "precondition": "User is logged in",
+          "process_flow": "User navigates to 'Browse Requests' > System displays list of active requests with requester name, required skill, and description.",
+          "postcondition": "User can see all active service requests",
+          "acceptance_criteria": [
+            "User can browse all active requests",
+            "Requests show requester info, skill needed, description",
+            "Requests can be filtered or searched",
+            "User can click to view request details"
+          ]
+        },
+        {
+          "use_case_id": "UC2004",
+          "title": "Skill Matching (Automated)",
+          "actor": "System",
+          "priority": "Must",
+          "precondition": "A new service request is posted",
+          "process_flow": "Trigger: New request posted > System compares required skills with user database > System identifies matching providers > System displays suggested users to the Requester.",
+          "postcondition": "Matching service providers are suggested to the requester",
+          "acceptance_criteria": [
+            "System automatically finds matching providers",
+            "Matches are based on skill relevance",
+            "Suggested providers are displayed to requester",
+            "System can find multiple potential matches"
+          ]
+        },
+        {
+          "use_case_id": "UC2005",
+          "title": "Accept or Reject Suggested User",
+          "actor": "Service Requester",
+          "priority": "Should",
+          "precondition": "System has suggested matching providers",
+          "process_flow": "System shows suggested users > User reviews profiles > User clicks 'Accept' or 'Reject' > System updates request status and notifies selected user.",
+          "postcondition": "Provider is selected or requester can request more suggestions",
+          "acceptance_criteria": [
+            "User can view suggested provider profiles",
+            "User can accept a suggested provider",
+            "User can reject and request other suggestions",
+            "Accepted provider receives notification"
+          ]
+        },
+        {
+          "use_case_id": "UC2006",
+          "title": "Report Inappropriate Request",
+          "actor": "User",
+          "priority": "Could",
+          "precondition": "User is viewing a service request",
+          "process_flow": "User views request > Clicks 'Report' > States reason > System records report and notifies Admin.",
+          "postcondition": "Report is submitted and added to admin review queue",
+          "acceptance_criteria": [
+            "User can report any request",
+            "Report requires a reason",
+            "Report is sent to admin queue",
+            "Reporter receives confirmation"
+          ]
+        },
+        {
+          "use_case_id": "UC2007",
+          "title": "Monitor Reported Requests",
+          "actor": "Administrator",
+          "priority": "Could",
+          "precondition": "Admin is logged in and reports exist",
+          "process_flow": "Admin accesses 'Request Management' panel > Reviews report details > Chooses 'Approve' (keep), 'Remove' (delete request), or 'Dismiss' (ignore report) > System executes action.",
+          "postcondition": "Reported request is handled appropriately",
+          "acceptance_criteria": [
+            "Admin can view all reported requests",
+            "Admin can see report reason and request details",
+            "Admin can remove violating requests",
+            "Admin can dismiss invalid reports"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "Dual-Mode Transaction System",
+      "module_id": "03",
+      "description": "Supports both direct skill-to-skill exchanges and credit-based transactions.",
+      "features": [
+        {
+          "use_case_id": "UC3001",
+          "title": "Request Skill-Based Transaction",
+          "actor": "Service Requester",
+          "priority": "Must",
+          "precondition": "User has found a service provider",
+          "process_flow": "Requester finds provider > Proposes skill exchange > Specifies skill offered in return > System notifies provider > Provider accepts or negotiates > System confirms exchange.",
+          "postcondition": "Skill-based transaction is initiated between both parties",
+          "acceptance_criteria": [
+            "Requester can propose skill-for-skill exchange",
+            "Provider receives notification of proposal",
+            "Provider can accept, reject, or counter-propose",
+            "Both parties must agree before transaction starts"
+          ]
+        },
+        {
+          "use_case_id": "UC3002",
+          "title": "Request Credit-Based Transaction",
+          "actor": "Service Requester",
+          "priority": "Must",
+          "precondition": "User has sufficient credits",
+          "process_flow": "Requester selects credit mode > System checks balance > System reserves credits upon confirmation > System transfers credits to provider upon completion.",
+          "postcondition": "Credits are transferred from requester to provider",
+          "acceptance_criteria": [
+            "Requester can select credit-based exchange",
+            "System validates sufficient balance",
+            "Credits are reserved during transaction",
+            "Credits transfer on successful completion"
+          ]
+        },
+        {
+          "use_case_id": "UC3003",
+          "title": "Track Credit Balance and History",
+          "actor": "User",
+          "priority": "Must",
+          "precondition": "User is logged in",
+          "process_flow": "User navigates to 'Credit History' > System displays current balance, transaction records, and statuses.",
+          "postcondition": "User can view their credit information",
+          "acceptance_criteria": [
+            "User can view current credit balance",
+            "User can see transaction history",
+            "History shows credits earned and spent",
+            "Each transaction shows status and details"
+          ]
+        },
+        {
+          "use_case_id": "UC3004",
+          "title": "Earn Credits Through Service Delivery",
+          "actor": "Service Provider",
+          "priority": "Should",
+          "precondition": "Service has been delivered",
+          "process_flow": "Exchange marked 'Completed' by both parties > Requester confirms success > System adds credits to Provider's account > System records transaction.",
+          "postcondition": "Provider receives credits for completed service",
+          "acceptance_criteria": [
+            "Credits are awarded after service completion",
+            "Both parties must confirm completion",
+            "Credits are added to provider balance",
+            "Transaction is recorded in history"
+          ]
+        },
+        {
+          "use_case_id": "UC3005",
+          "title": "Report Disputed Transactions",
+          "actor": "Service Provider / Requester",
+          "priority": "Should",
+          "precondition": "Transaction exists in user's history",
+          "process_flow": "User goes to transaction history > Selects 'Report Dispute' on a transaction > Describes issue and attaches evidence > System forwards to Admin.",
+          "postcondition": "Dispute is submitted for admin review",
+          "acceptance_criteria": [
+            "User can dispute any transaction they're part of",
+            "Dispute requires description of issue",
+            "User can attach evidence (screenshots, etc.)",
+            "Dispute is sent to admin queue"
+          ]
+        },
+        {
+          "use_case_id": "UC3006",
+          "title": "Manage Disputed Transactions",
+          "actor": "Administrator",
+          "priority": "Should",
+          "precondition": "Dispute has been reported",
+          "process_flow": "Admin reviews evidence from both parties > Admin adjusts or reverses transaction if needed > System notifies both users of resolution.",
+          "postcondition": "Dispute is resolved and users are notified",
+          "acceptance_criteria": [
+            "Admin can view all disputes",
+            "Admin can see evidence from both parties",
+            "Admin can adjust or reverse transactions",
+            "Both parties receive resolution notification"
+          ]
+        },
+        {
+          "use_case_id": "UC3007",
+          "title": "Flexible Exchange Negotiation",
+          "actor": "Service Provider / Requester",
+          "priority": "Could",
+          "precondition": "Transaction proposal has been made",
+          "process_flow": "User opens negotiation page > Proposes terms (duration, credit amount, scope) > Both users must confirm agreement > System proceeds to transaction.",
+          "postcondition": "Terms are agreed upon by both parties",
+          "acceptance_criteria": [
+            "Users can propose custom terms",
+            "Terms can include duration and amount",
+            "Both parties must accept final terms",
+            "Agreement is recorded before service begins"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "Reputation and Feedback System",
+      "module_id": "04",
+      "description": "Establishes trust via ratings, reviews, and skill endorsements.",
+      "features": [
+        {
+          "use_case_id": "UC4001",
+          "title": "Rate Service Provider",
+          "actor": "Service Requester",
+          "priority": "Must",
+          "precondition": "Service exchange is marked as completed",
+          "process_flow": "Service marked 'Completed' > User navigates to 'Completed Services' > Clicks 'Leave Feedback' > Inputs rating (1-5 stars) and comment > System saves feedback.",
+          "postcondition": "Rating and review are saved and visible on provider's profile",
+          "acceptance_criteria": [
+            "User can rate provider after completion",
+            "Rating uses 1-5 star scale",
+            "User can add written comment",
+            "Rating appears on provider's profile"
+          ]
+        },
+        {
+          "use_case_id": "UC4002",
+          "title": "Endorse Service Provider's Skill",
+          "actor": "Service Requester",
+          "priority": "Could",
+          "precondition": "User has given a rating to the provider",
+          "process_flow": "After rating given > System shows checkbox with skill from original request > User checks box to endorse > System records endorsement on Provider's skill.",
+          "postcondition": "Skill endorsement is added to provider's profile",
+          "acceptance_criteria": [
+            "User can endorse specific skill after rating",
+            "Endorsement is linked to the relevant skill",
+            "Endorsement count shows on provider's skills",
+            "Endorsement is optional"
+          ]
+        },
+        {
+          "use_case_id": "UC4003",
+          "title": "Rate Service Requester",
+          "actor": "Service Provider",
+          "priority": "Should",
+          "precondition": "Service exchange is marked as completed",
+          "process_flow": "Service marked 'Completed' > Provider navigates to 'Completed Services' > Clicks 'Rate Requester' > Inputs rating and comment > System saves feedback.",
+          "postcondition": "Requester's reputation score is updated",
+          "acceptance_criteria": [
+            "Provider can rate requester after completion",
+            "Rating uses 1-5 star scale",
+            "Provider can add written comment",
+            "Rating affects requester's reputation"
+          ]
+        },
+        {
+          "use_case_id": "UC4004",
+          "title": "Respond to Feedback",
+          "actor": "Service Provider",
+          "priority": "Should",
+          "precondition": "User has received feedback on their profile",
+          "process_flow": "User views feedback on own profile > Clicks 'Reply' > Types response > System displays reply publicly below original feedback.",
+          "postcondition": "Response is visible alongside the original feedback",
+          "acceptance_criteria": [
+            "Provider can respond to any feedback received",
+            "Response appears below original feedback",
+            "Response is publicly visible",
+            "Only one response per feedback allowed"
+          ]
+        },
+        {
+          "use_case_id": "UC4005",
+          "title": "View User Reputation",
+          "actor": "User",
+          "priority": "Must",
+          "precondition": "User is viewing a profile",
+          "process_flow": "User views a profile > System calculates and displays two aggregates: 'Provider Rating' (average as provider) and 'Requester Rating' (average as requester).",
+          "postcondition": "Reputation metrics are displayed",
+          "acceptance_criteria": [
+            "Profile shows provider rating average",
+            "Profile shows requester rating average",
+            "Ratings are calculated from all feedback",
+            "Number of ratings is also displayed"
+          ]
+        },
+        {
+          "use_case_id": "UC4006",
+          "title": "Report Inappropriate Feedback",
+          "actor": "User",
+          "priority": "Should",
+          "precondition": "User has received feedback they believe is inappropriate",
+          "process_flow": "User views 'Reviews About Me' > Clicks 'Report' on a review > Provides reason > System flags review > System adds to Admin moderation queue.",
+          "postcondition": "Feedback is flagged for admin review",
+          "acceptance_criteria": [
+            "User can report feedback about themselves",
+            "Report requires a reason",
+            "Flagged feedback is sent to admin queue",
+            "Feedback remains visible until admin decision"
+          ]
+        },
+        {
+          "use_case_id": "UC4007",
+          "title": "Review Reported Feedback",
+          "actor": "Administrator",
+          "priority": "Must",
+          "precondition": "Feedback has been reported",
+          "process_flow": "Admin logs in > Clicks 'Reported Feedback' queue > Views review text and reporter reason > Decides action (Delete/Dismiss) > System updates review status.",
+          "postcondition": "Reported feedback is handled appropriately",
+          "acceptance_criteria": [
+            "Admin can view all reported feedback",
+            "Admin can see original feedback and report reason",
+            "Admin can delete inappropriate feedback",
+            "Admin can dismiss invalid reports"
+          ]
+        }
+      ]
+    },
+    {
+      "module_name": "Administrative and Analytics Dashboard",
+      "module_id": "05",
+      "description": "Tools to monitor platform health, engagement, and prevent fraud.",
+      "features": [
+        {
+          "use_case_id": "UC5001",
+          "title": "View System Overview",
+          "actor": "Administrator",
+          "priority": "Must",
+          "precondition": "Admin is logged in",
+          "process_flow": "Admin opens 'System Overview' > System calculates and displays stats/charts: Total Users, Active Requests, Completed Exchanges, Total Credit Flow.",
+          "postcondition": "Admin can see platform-wide statistics",
+          "acceptance_criteria": [
+            "Dashboard shows total registered users",
+            "Dashboard shows number of active requests",
+            "Dashboard shows completed exchanges count",
+            "Dashboard shows credit circulation stats"
+          ]
+        },
+        {
+          "use_case_id": "UC5002",
+          "title": "Monitor Module Analytics",
+          "actor": "Administrator",
+          "priority": "Must",
+          "precondition": "Admin is logged in",
+          "process_flow": "Admin selects a module (e.g., Transaction System) > System displays usage stats, activity trends, and any error logs.",
+          "postcondition": "Admin can see module-specific analytics",
+          "acceptance_criteria": [
+            "Admin can select any system module",
+            "Analytics show usage statistics",
+            "Analytics show activity trends over time",
+            "Error logs are accessible if any"
+          ]
+        },
+        {
+          "use_case_id": "UC5003",
+          "title": "Detect Abnormal Credit Activity",
+          "actor": "System / Administrator",
+          "priority": "Must",
+          "precondition": "Credit transactions are being processed",
+          "process_flow": "System monitors transactions > Detects abnormal patterns (unusual volume, repeated transfers between same users) > Flags transaction > Sends alert to Administrator.",
+          "postcondition": "Suspicious activity is flagged for admin review",
+          "acceptance_criteria": [
+            "System automatically monitors transactions",
+            "System detects unusual patterns",
+            "Suspicious transactions are flagged",
+            "Admin receives alerts for flagged items"
+          ]
+        },
+        {
+          "use_case_id": "UC5004",
+          "title": "View Personal Contribution Analytics",
+          "actor": "User",
+          "priority": "Should",
+          "precondition": "User is logged in",
+          "process_flow": "User opens 'My Analytics' > System displays charts: Completed exchanges, Credits earned/used, Overall performance rating.",
+          "postcondition": "User can see their personal statistics",
+          "acceptance_criteria": [
+            "User can view their completed exchanges",
+            "User can see credits earned and spent",
+            "User can see their overall rating",
+            "Analytics are presented visually (charts)"
+          ]
+        },
+        {
+          "use_case_id": "UC5005",
+          "title": "View Request Activity Insights",
+          "actor": "Service Requester",
+          "priority": "Should",
+          "precondition": "User has made service requests",
+          "process_flow": "User opens 'My Requests Analytics' > System displays: Total requests made, Requests completed, Average response time, Credits used.",
+          "postcondition": "User can see their request activity summary",
+          "acceptance_criteria": [
+            "User can see total requests made",
+            "User can see completion rate",
+            "User can see average response time",
+            "User can see total credits spent"
+          ]
+        },
+        {
+          "use_case_id": "UC5006",
+          "title": "Compare My Activity with Community Average",
+          "actor": "User",
+          "priority": "Could",
+          "precondition": "User has activity data",
+          "process_flow": "User selects time range and/or skill category > System displays comparison chart of User's Activity vs Community Average.",
+          "postcondition": "User can benchmark their activity against community",
+          "acceptance_criteria": [
+            "User can select time range for comparison",
+            "User can filter by skill category",
+            "Chart shows user vs community average",
+            "Comparison includes key metrics"
+          ]
+        },
+        {
+          "use_case_id": "UC5007",
+          "title": "Track Skill Growth and Service History",
+          "actor": "Service Provider",
+          "priority": "Could",
+          "precondition": "User has completed services",
+          "process_flow": "User navigates to 'Service History' > System lists all completed services, dates, skills used, and feedback received.",
+          "postcondition": "User can review their service history and skill progression",
+          "acceptance_criteria": [
+            "User can see list of completed services",
+            "Each entry shows date and skill used",
+            "Each entry shows feedback received",
+            "User can track skill usage over time"
+          ]
+        }
+      ]
+    }
+  ]
+}
