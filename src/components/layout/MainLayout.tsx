@@ -31,6 +31,7 @@ import {
   X,
   Check,
   CheckCheck,
+  ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -108,6 +109,23 @@ export function MainLayout() {
     navigate("/");
   };
 
+  // Grouped navigation structure for cleaner navbar
+  const navGroups = [
+    { path: "/dashboard", label: "Dashboard", icon: Home },
+    {
+      label: "Requests",
+      icon: FileText,
+      children: [
+        { path: "/requests", label: "Browse Requests", icon: Search },
+        { path: "/requests/my", label: "My Requests", icon: FileText },
+      ],
+    },
+    { path: "/services", label: "Services", icon: Briefcase },
+    { path: "/transactions", label: "Transactions", icon: CreditCard },
+    { path: "/analytics", label: "Analytics", icon: BarChart3 },
+  ];
+
+  // Flat nav items for mobile menu
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/requests", label: "Browse Requests", icon: Search },
@@ -128,8 +146,8 @@ export function MainLayout() {
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
-          {/* Logo */}
-          <Link to="/dashboard" className="flex items-center gap-2">
+          {/* Logo - Links to landing page */}
+          <Link to="/" className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
               <span className="text-lg font-bold text-white">S</span>
             </div>
@@ -138,20 +156,55 @@ export function MainLayout() {
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
-              <Link key={item.path} to={item.path}>
-                <Button
-                  variant={location.pathname === item.path ? "secondary" : "ghost"}
-                  size="sm"
-                  className="gap-2"
-                >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                </Button>
-              </Link>
-            ))}
+          {/* Desktop Navigation - Grouped with Dropdowns */}
+          <nav className="hidden lg:flex items-center gap-1">
+            {navGroups.map((item) =>
+              "children" in item && item.children ? (
+                <DropdownMenu key={item.label}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant={
+                        item.children.some((child) => location.pathname === child.path)
+                          ? "secondary"
+                          : "ghost"
+                      }
+                      size="sm"
+                      className="gap-1.5"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {item.children.map((child) => (
+                      <DropdownMenuItem
+                        key={child.path}
+                        onClick={() => navigate(child.path)}
+                        className={cn(
+                          "gap-2 cursor-pointer",
+                          location.pathname === child.path && "bg-muted"
+                        )}
+                      >
+                        <child.icon className="h-4 w-4" />
+                        {child.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Link key={item.path} to={item.path}>
+                  <Button
+                    variant={location.pathname === item.path ? "secondary" : "ghost"}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Button>
+                </Link>
+              )
+            )}
             {isAdmin() && (
               <>
                 <div className="mx-2 h-6 w-px bg-border" />
@@ -330,7 +383,7 @@ export function MainLayout() {
             <Button
               variant="ghost"
               size="icon"
-              className="md:hidden"
+              className="lg:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
@@ -344,7 +397,7 @@ export function MainLayout() {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <nav className="md:hidden border-t bg-background p-4">
+          <nav className="lg:hidden border-t bg-background p-4">
             <div className="flex flex-col gap-2">
               {navItems.map((item) => (
                 <Link
