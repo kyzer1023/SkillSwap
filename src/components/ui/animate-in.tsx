@@ -20,6 +20,7 @@ interface AnimateInProps {
   threshold?: number;
   stagger?: boolean;
   staggerDelay?: number;
+  once?: boolean;
   as?: "div" | "section" | "article" | "main" | "header" | "footer" | "aside" | "nav" | "span" | "p";
 }
 
@@ -32,37 +33,39 @@ export function AnimateIn({
   threshold = 0.1,
   stagger = false,
   staggerDelay = 0.1,
+  once = true,
   as: Component = "div",
 }: AnimateInProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [hasTriggered, setHasTriggered] = useState(false);
 
   useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasTriggered) {
+        if (entry.isIntersecting) {
           setIsVisible(true);
-          setHasTriggered(true);
-          observer.unobserve(entry.target);
+          if (once) {
+            observer.disconnect();
+          }
+        } else if (!once) {
+          setIsVisible(false);
         }
       },
       {
         threshold,
-        rootMargin: "0px 0px -50px 0px",
+        rootMargin: "50px 0px 0px 0px",
       }
     );
 
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
+    observer.observe(element);
 
     return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
+      observer.disconnect();
     };
-  }, [threshold, hasTriggered]);
+  }, [threshold, once]);
 
   const getAnimationClass = () => {
     switch (animation) {
@@ -92,23 +95,21 @@ export function AnimateIn({
   if (stagger && React.Children.count(children) > 0) {
     return (
       <Component
-        ref={ref}
+        ref={ref as React.RefObject<HTMLDivElement>}
         className={cn(className)}
+        style={{ opacity: isVisible ? 1 : 0 }}
       >
         {React.Children.map(children, (child, index) => {
           if (!React.isValidElement(child)) return child;
           
           return (
             <div
-              className={cn(
-                animationClass,
-                !isVisible && "animate-paused"
-              )}
-              style={{
+              className={isVisible ? animationClass : undefined}
+              style={isVisible ? {
                 animationDelay: `${delay + index * staggerDelay}s`,
                 animationDuration: `${duration}s`,
                 animationFillMode: "both",
-              }}
+              } : { opacity: 0 }}
             >
               {child}
             </div>
@@ -120,17 +121,13 @@ export function AnimateIn({
 
   return (
     <Component
-      ref={ref}
-      className={cn(
-        className, 
-        animationClass,
-        !isVisible && "animate-paused"
-      )}
-      style={{
+      ref={ref as React.RefObject<HTMLDivElement>}
+      className={cn(className, isVisible ? animationClass : undefined)}
+      style={isVisible ? {
         animationDelay: `${delay}s`,
         animationDuration: `${duration}s`,
         animationFillMode: "both",
-      }}
+      } : { opacity: 0 }}
     >
       {children}
     </Component>
@@ -146,6 +143,7 @@ interface AnimateChildrenProps {
   baseDelay?: number;
   staggerDelay?: number;
   threshold?: number;
+  once?: boolean;
 }
 
 export function AnimateChildren({
@@ -156,36 +154,38 @@ export function AnimateChildren({
   baseDelay = 0,
   staggerDelay = 0.1,
   threshold = 0.1,
+  once = true,
 }: AnimateChildrenProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [hasTriggered, setHasTriggered] = useState(false);
 
   useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasTriggered) {
+        if (entry.isIntersecting) {
           setIsVisible(true);
-          setHasTriggered(true);
-          observer.unobserve(entry.target);
+          if (once) {
+            observer.disconnect();
+          }
+        } else if (!once) {
+          setIsVisible(false);
         }
       },
       {
         threshold,
-        rootMargin: "0px 0px -50px 0px",
+        rootMargin: "50px 0px 0px 0px",
       }
     );
 
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
+    observer.observe(element);
 
     return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
+      observer.disconnect();
     };
-  }, [threshold, hasTriggered]);
+  }, [threshold, once]);
 
   const getAnimationClass = () => {
     switch (animation) {
@@ -213,21 +213,18 @@ export function AnimateChildren({
   const animationClass = getAnimationClass();
 
   return (
-    <div ref={ref} className={className}>
+    <div ref={ref} className={className} style={{ opacity: isVisible ? 1 : 0 }}>
       {React.Children.map(children, (child, index) => {
         if (!React.isValidElement(child)) return child;
         
         return (
           <div
-            className={cn(
-              animationClass,
-              !isVisible && "animate-paused"
-            )}
-            style={{
+            className={isVisible ? animationClass : undefined}
+            style={isVisible ? {
               animationDelay: `${baseDelay + index * staggerDelay}s`,
               animationDuration: `${duration}s`,
               animationFillMode: "both",
-            }}
+            } : { opacity: 0 }}
           >
             {child}
           </div>

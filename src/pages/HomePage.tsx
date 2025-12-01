@@ -28,33 +28,29 @@ export function HomePage() {
 
       {/* Header */}
       <header className="container flex h-16 items-center justify-between">
-        <AnimateIn animation="slide-in-left" duration={0.5}>
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
-              <span className="text-lg font-bold text-white">S</span>
-            </div>
-            <span className="font-semibold text-lg">SkillSwap</span>
+        <div className="flex items-center gap-2 animate-slide-in-left" style={{ animationDuration: '0.3s' }}>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary">
+            <span className="text-lg font-bold text-white">S</span>
           </div>
-        </AnimateIn>
-        <AnimateIn animation="slide-in-right" duration={0.5}>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            {isAuthenticated ? (
-              <Link to="/dashboard">
-                <Button>Go to Dashboard</Button>
+          <span className="font-semibold text-lg">SkillSwap</span>
+        </div>
+        <div className="flex items-center gap-4 animate-slide-in-right" style={{ animationDuration: '0.3s' }}>
+          <ThemeToggle />
+          {isAuthenticated ? (
+            <Link to="/dashboard">
+              <Button>Go to Dashboard</Button>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link to="/login">
+                <Button variant="ghost">Sign in</Button>
               </Link>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link to="/login">
-                  <Button variant="ghost">Sign in</Button>
-                </Link>
-                <Link to="/register">
-                  <Button>Get Started</Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </AnimateIn>
+              <Link to="/register">
+                <Button>Get Started</Button>
+              </Link>
+            </div>
+          )}
+        </div>
       </header>
 
       {/* Hero Section */}
