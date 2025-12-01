@@ -41,6 +41,7 @@ import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminReportsPage } from "@/pages/admin/AdminReportsPage";
 import { AdminDisputesPage } from "@/pages/admin/AdminDisputesPage";
 import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+import { AdminFraudAlertsPage } from "@/pages/admin/AdminFraudAlertsPage";
 
 // User-only Route Component (excludes admins from user features)
 function UserRoute({ children }: { children: React.ReactNode }) {
@@ -133,6 +134,7 @@ export default function App() {
         <Route path="/admin/users" element={<AdminUsersPage />} />
         <Route path="/admin/reports" element={<AdminReportsPage />} />
         <Route path="/admin/disputes" element={<AdminDisputesPage />} />
+        <Route path="/admin/fraud-alerts" element={<AdminFraudAlertsPage />} />
       </Route>
 
       {/* Catch all */}

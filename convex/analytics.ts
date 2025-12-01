@@ -1,6 +1,26 @@
 import { v } from "convex/values";
 import { query } from "./_generated/server";
 
+// Get available skill categories for filtering
+export const getSkillCategories = query({
+  args: { sessionToken: v.string() },
+  returns: v.array(v.string()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) return [];
+
+    const skills = await ctx.db.query("skills").collect();
+    const uniqueSkills = [...new Set(skills.map((s) => s.name.toLowerCase()))];
+    
+    // Capitalize first letter
+    return uniqueSkills.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).sort();
+  },
+});
+
 // Get personal contribution analytics (UC5004)
 export const getMyAnalytics = query({
   args: { sessionToken: v.string() },
@@ -170,19 +190,32 @@ export const getRequestInsights = query({
 
 // Compare with community average (UC5006)
 export const getCommunityComparison = query({
-  args: { sessionToken: v.string() },
+  args: { 
+    sessionToken: v.string(),
+    timeRange: v.optional(v.union(
+      v.literal("7days"),
+      v.literal("30days"),
+      v.literal("90days"),
+      v.literal("all")
+    )),
+    skillCategory: v.optional(v.string()),
+  },
   returns: v.union(
     v.object({
       user: v.object({
         completedExchanges: v.number(),
         avgRating: v.number(),
         skillsCount: v.number(),
+        creditsEarned: v.number(),
       }),
       community: v.object({
         avgCompletedExchanges: v.number(),
         avgRating: v.number(),
         avgSkillsCount: v.number(),
+        avgCreditsEarned: v.number(),
       }),
+      timeRange: v.string(),
+      skillCategory: v.optional(v.string()),
     }),
     v.null()
   ),
@@ -193,6 +226,19 @@ export const getCommunityComparison = query({
       .unique();
 
     if (!session || session.expiresAt < Date.now()) return null;
+
+    // Calculate time filter
+    const now = Date.now();
+    let startTime = 0;
+    const timeRange = args.timeRange ?? "all";
+    
+    if (timeRange === "7days") {
+      startTime = now - 7 * 24 * 60 * 60 * 1000;
+    } else if (timeRange === "30days") {
+      startTime = now - 30 * 24 * 60 * 60 * 1000;
+    } else if (timeRange === "90days") {
+      startTime = now - 90 * 24 * 60 * 60 * 1000;
+    }
 
     // User stats
     const userTransactionsAsProvider = await ctx.db
@@ -205,34 +251,90 @@ export const getCommunityComparison = query({
       .withIndex("by_requesterId", (q) => q.eq("requesterId", session.userId))
       .collect();
 
-    const userCompletedExchanges =
-      userTransactionsAsProvider.filter((t) => t.status === "completed").length +
-      userTransactionsAsRequester.filter((t) => t.status === "completed").length;
+    // Filter by time range and skill category
+    let filteredUserProviderTx = userTransactionsAsProvider.filter(
+      (t) => t.status === "completed" && t._creationTime >= startTime
+    );
+    let filteredUserRequesterTx = userTransactionsAsRequester.filter(
+      (t) => t.status === "completed" && t._creationTime >= startTime
+    );
 
+    // If skill category is specified, filter transactions by skill
+    if (args.skillCategory) {
+      const skillLower = args.skillCategory.toLowerCase();
+      filteredUserProviderTx = filteredUserProviderTx.filter(
+        (t) => t.skillReceived?.toLowerCase() === skillLower || t.skillOffered?.toLowerCase() === skillLower
+      );
+      filteredUserRequesterTx = filteredUserRequesterTx.filter(
+        (t) => t.skillReceived?.toLowerCase() === skillLower || t.skillOffered?.toLowerCase() === skillLower
+      );
+    }
+
+    const userCompletedExchanges = filteredUserProviderTx.length + filteredUserRequesterTx.length;
+
+    // Get user ratings within time range
     const userRatings = await ctx.db
       .query("ratings")
       .withIndex("by_rateeId", (q) => q.eq("rateeId", session.userId))
       .collect();
 
+    const filteredUserRatings = userRatings.filter((r) => r._creationTime >= startTime);
+
     const userAvgRating =
-      userRatings.length > 0
-        ? userRatings.reduce((sum, r) => sum + r.rating, 0) / userRatings.length
+      filteredUserRatings.length > 0
+        ? filteredUserRatings.reduce((sum, r) => sum + r.rating, 0) / filteredUserRatings.length
         : 0;
 
+    // Get user skills (optionally filtered by category)
     const userSkills = await ctx.db
       .query("skills")
       .withIndex("by_userId", (q) => q.eq("userId", session.userId))
       .collect();
 
+    const filteredUserSkills = args.skillCategory
+      ? userSkills.filter((s) => s.name.toLowerCase() === args.skillCategory!.toLowerCase())
+      : userSkills;
+
+    // Calculate user credits earned in time range
+    const userCreditHistory = await ctx.db
+      .query("creditHistory")
+      .withIndex("by_userId", (q) => q.eq("userId", session.userId))
+      .collect();
+
+    const userCreditsEarned = userCreditHistory
+      .filter((h) => h.type === "earned" && h._creationTime >= startTime)
+      .reduce((sum, h) => sum + h.amount, 0);
+
     // Community stats
     const allUsers = await ctx.db.query("users").collect();
     const activeUsers = allUsers.filter((u) => u.isActive);
     const allTransactions = await ctx.db.query("transactions").collect();
-    const completedTransactions = allTransactions.filter(
-      (t) => t.status === "completed"
+    
+    // Filter community transactions
+    let completedTransactions = allTransactions.filter(
+      (t) => t.status === "completed" && t._creationTime >= startTime
     );
+
+    if (args.skillCategory) {
+      const skillLower = args.skillCategory.toLowerCase();
+      completedTransactions = completedTransactions.filter(
+        (t) => t.skillReceived?.toLowerCase() === skillLower || t.skillOffered?.toLowerCase() === skillLower
+      );
+    }
+
     const allRatings = await ctx.db.query("ratings").collect();
+    const filteredAllRatings = allRatings.filter((r) => r._creationTime >= startTime);
+
     const allSkills = await ctx.db.query("skills").collect();
+    const filteredAllSkills = args.skillCategory
+      ? allSkills.filter((s) => s.name.toLowerCase() === args.skillCategory!.toLowerCase())
+      : allSkills;
+
+    // Calculate community credits earned
+    const allCreditHistory = await ctx.db.query("creditHistory").collect();
+    const communityCreditsEarned = allCreditHistory
+      .filter((h) => h.type === "earned" && h._creationTime >= startTime)
+      .reduce((sum, h) => sum + h.amount, 0);
 
     const communityAvgExchanges =
       activeUsers.length > 0
@@ -240,24 +342,31 @@ export const getCommunityComparison = query({
         : 0;
 
     const communityAvgRating =
-      allRatings.length > 0
-        ? allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length
+      filteredAllRatings.length > 0
+        ? filteredAllRatings.reduce((sum, r) => sum + r.rating, 0) / filteredAllRatings.length
         : 0;
 
     const communityAvgSkills =
-      activeUsers.length > 0 ? allSkills.length / activeUsers.length : 0;
+      activeUsers.length > 0 ? filteredAllSkills.length / activeUsers.length : 0;
+
+    const communityAvgCredits =
+      activeUsers.length > 0 ? communityCreditsEarned / activeUsers.length : 0;
 
     return {
       user: {
         completedExchanges: userCompletedExchanges,
         avgRating: Math.round(userAvgRating * 10) / 10,
-        skillsCount: userSkills.length,
+        skillsCount: filteredUserSkills.length,
+        creditsEarned: userCreditsEarned,
       },
       community: {
         avgCompletedExchanges: Math.round(communityAvgExchanges * 10) / 10,
         avgRating: Math.round(communityAvgRating * 10) / 10,
         avgSkillsCount: Math.round(communityAvgSkills * 10) / 10,
+        avgCreditsEarned: Math.round(communityAvgCredits * 10) / 10,
       },
+      timeRange,
+      skillCategory: args.skillCategory,
     };
   },
 });

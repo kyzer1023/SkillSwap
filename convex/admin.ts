@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
+import { Id } from "./_generated/dataModel";
 
 // Helper to verify admin session
 async function verifyAdmin(
@@ -185,6 +186,7 @@ export const getPendingReports = query({
         v.literal("transaction")
       ),
       targetId: v.string(),
+      targetName: v.string(),
       reason: v.string(),
       status: v.union(
         v.literal("pending"),
@@ -207,6 +209,34 @@ export const getPendingReports = query({
     const reportsWithDetails = await Promise.all(
       reports.map(async (report) => {
         const reporter = await ctx.db.get(report.reporterId);
+        
+        // Resolve targetId to a human-readable name based on reportType
+        let targetName = "Unknown";
+        try {
+          if (report.reportType === "user") {
+            const targetUser = await ctx.db.get(report.targetId as Id<"users">);
+            targetName = targetUser?.name ?? "Unknown User";
+          } else if (report.reportType === "request") {
+            const targetRequest = await ctx.db.get(report.targetId as Id<"serviceRequests">);
+            targetName = targetRequest?.title ?? "Unknown Request";
+          } else if (report.reportType === "feedback") {
+            const targetRating = await ctx.db.get(report.targetId as Id<"ratings">);
+            if (targetRating) {
+              const ratee = await ctx.db.get(targetRating.rateeId);
+              targetName = `Feedback for ${ratee?.name ?? "Unknown User"}`;
+            }
+          } else if (report.reportType === "transaction") {
+            const targetTransaction = await ctx.db.get(report.targetId as Id<"transactions">);
+            if (targetTransaction) {
+              const requester = await ctx.db.get(targetTransaction.requesterId);
+              const provider = await ctx.db.get(targetTransaction.providerId);
+              targetName = `${requester?.name ?? "Unknown"} ↔ ${provider?.name ?? "Unknown"}`;
+            }
+          }
+        } catch {
+          targetName = "Invalid Reference";
+        }
+        
         return {
           _id: report._id,
           _creationTime: report._creationTime,
@@ -214,6 +244,7 @@ export const getPendingReports = query({
           reporterName: reporter?.name ?? "Unknown",
           reportType: report.reportType,
           targetId: report.targetId,
+          targetName,
           reason: report.reason,
           status: report.status,
         };
@@ -481,6 +512,51 @@ export const getFraudAlerts = query({
     );
 
     return alertsWithDetails;
+  },
+});
+
+// Resolve fraud alert
+export const resolveFraudAlert = mutation({
+  args: {
+    sessionToken: v.string(),
+    alertId: v.id("fraudAlerts"),
+    action: v.union(
+      v.literal("resolve"),
+      v.literal("dismiss"),
+      v.literal("investigate")
+    ),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) return false;
+
+    const admin = await ctx.db.get(session.userId);
+    if (!admin || admin.role !== "admin") return false;
+
+    const alert = await ctx.db.get(args.alertId);
+    if (!alert) return false;
+
+    let newStatus: "resolved" | "dismissed" | "investigating";
+    if (args.action === "resolve") {
+      newStatus = "resolved";
+    } else if (args.action === "dismiss") {
+      newStatus = "dismissed";
+    } else {
+      newStatus = "investigating";
+    }
+
+    await ctx.db.patch(args.alertId, {
+      status: newStatus,
+      resolvedBy: args.action !== "investigate" ? session.userId : undefined,
+      resolvedAt: args.action !== "investigate" ? Date.now() : undefined,
+    });
+
+    return true;
   },
 });
 

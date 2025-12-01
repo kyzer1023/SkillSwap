@@ -23,6 +23,7 @@ import {
   Users,
   Menu,
   X,
+  ShieldAlert,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -44,6 +45,10 @@ export function AdminLayout() {
     sessionToken: sessionToken ?? "",
   });
 
+  const fraudAlerts = useQuery(api.admin.getFraudAlerts, {
+    sessionToken: sessionToken ?? "",
+  });
+
   const logout = useMutation(api.auth.logout);
 
   const handleLogout = async () => {
@@ -59,9 +64,11 @@ export function AdminLayout() {
     { path: "/admin/users", label: "Users", icon: Users },
     { path: "/admin/reports", label: "Reports", icon: FileText },
     { path: "/admin/disputes", label: "Disputes", icon: AlertTriangle },
+    { path: "/admin/fraud-alerts", label: "Fraud Alerts", icon: ShieldAlert },
   ];
 
-  const pendingItems = (overview?.pendingReports ?? 0) + (overview?.pendingDisputes ?? 0);
+  const pendingFraudAlerts = fraudAlerts?.length ?? 0;
+  const pendingItems = (overview?.pendingReports ?? 0) + (overview?.pendingDisputes ?? 0) + pendingFraudAlerts;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -97,6 +104,11 @@ export function AdminLayout() {
                   {item.path === "/admin/disputes" && (overview?.pendingDisputes ?? 0) > 0 && (
                     <Badge variant="destructive" className="ml-1 h-5 px-1.5">
                       {overview?.pendingDisputes}
+                    </Badge>
+                  )}
+                  {item.path === "/admin/fraud-alerts" && pendingFraudAlerts > 0 && (
+                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">
+                      {pendingFraudAlerts}
                     </Badge>
                   )}
                 </Button>
@@ -194,6 +206,11 @@ export function AdminLayout() {
                     {item.path === "/admin/disputes" && (overview?.pendingDisputes ?? 0) > 0 && (
                       <Badge variant="destructive" className="ml-auto">
                         {overview?.pendingDisputes}
+                      </Badge>
+                    )}
+                    {item.path === "/admin/fraud-alerts" && pendingFraudAlerts > 0 && (
+                      <Badge variant="destructive" className="ml-auto">
+                        {pendingFraudAlerts}
                       </Badge>
                     )}
                   </Button>

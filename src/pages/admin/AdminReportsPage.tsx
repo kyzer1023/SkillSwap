@@ -39,6 +39,7 @@ type ReportType = {
   reporterName: string;
   reportType: "request" | "feedback" | "user" | "transaction";
   targetId: string;
+  targetName: string;
   reason: string;
   status: string;
 };
@@ -225,7 +226,7 @@ export function AdminReportsPage() {
                       </div>
                       <p className="font-medium line-clamp-2">{report.reason}</p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Target ID: {report.targetId}
+                        Target: {report.targetName}
                       </p>
                     </div>
                   </div>
@@ -307,10 +308,8 @@ export function AdminReportsPage() {
               <p className="font-medium">{viewingReport?.reporterName}</p>
             </div>
             <div>
-              <span className="text-sm text-muted-foreground">Target ID:</span>
-              <p className="font-mono text-sm bg-muted p-2 rounded">
-                {viewingReport?.targetId}
-              </p>
+              <span className="text-sm text-muted-foreground">Target:</span>
+              <p className="font-medium">{viewingReport?.targetName}</p>
             </div>
             <div>
               <span className="text-sm text-muted-foreground">Reason:</span>

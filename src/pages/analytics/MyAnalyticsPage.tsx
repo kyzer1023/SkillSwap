@@ -1,17 +1,36 @@
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useAuthStore } from "@/stores/authStore";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Star, TrendingUp, CreditCard, Award, Users, BarChart3 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Star, TrendingUp, CreditCard, Award, Users, BarChart3, Calendar, Filter } from "lucide-react";
+
+type TimeRange = "7days" | "30days" | "90days" | "all";
 
 export function MyAnalyticsPage() {
   const { sessionToken } = useAuthStore();
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [skillCategory, setSkillCategory] = useState<string>("all");
 
   const analytics = useQuery(api.analytics.getMyAnalytics, { sessionToken: sessionToken ?? "" });
   const requestInsights = useQuery(api.analytics.getRequestInsights, { sessionToken: sessionToken ?? "" });
-  const comparison = useQuery(api.analytics.getCommunityComparison, { sessionToken: sessionToken ?? "" });
+  const skillCategories = useQuery(api.analytics.getSkillCategories, { sessionToken: sessionToken ?? "" });
+  const comparison = useQuery(api.analytics.getCommunityComparison, { 
+    sessionToken: sessionToken ?? "",
+    timeRange: timeRange,
+    skillCategory: skillCategory === "all" ? undefined : skillCategory,
+  });
   const serviceHistory = useQuery(api.analytics.getServiceHistory, { sessionToken: sessionToken ?? "" });
+
+  const timeRangeLabels: Record<TimeRange, string> = {
+    "7days": "Last 7 Days",
+    "30days": "Last 30 Days",
+    "90days": "Last 90 Days",
+    "all": "All Time",
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -96,7 +115,7 @@ export function MyAnalyticsPage() {
           </CardContent>
         </Card>
 
-        {/* Community Comparison */}
+        {/* Community Comparison with Filters */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -106,6 +125,55 @@ export function MyAnalyticsPage() {
             <CardDescription>How you compare to the community average</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Filters */}
+            <div className="grid grid-cols-2 gap-4 p-3 bg-muted rounded-lg">
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Time Range
+                </Label>
+                <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7days">Last 7 Days</SelectItem>
+                    <SelectItem value="30days">Last 30 Days</SelectItem>
+                    <SelectItem value="90days">Last 90 Days</SelectItem>
+                    <SelectItem value="all">All Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs flex items-center gap-1">
+                  <Filter className="h-3 w-3" />
+                  Skill Category
+                </Label>
+                <Select value={skillCategory} onValueChange={setSkillCategory}>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Skills</SelectItem>
+                    {skillCategories?.map((skill) => (
+                      <SelectItem key={skill} value={skill}>
+                        {skill}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {(timeRange !== "all" || skillCategory !== "all") && (
+              <div className="text-xs text-muted-foreground">
+                Showing: {timeRangeLabels[timeRange]}
+                {skillCategory !== "all" && ` • ${skillCategory}`}
+              </div>
+            )}
+
+            {/* Comparison Stats */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Exchanges</span>
@@ -126,6 +194,13 @@ export function MyAnalyticsPage() {
                 <span>You: {comparison?.user.skillsCount ?? 0} | Avg: {comparison?.community.avgSkillsCount ?? 0}</span>
               </div>
               <Progress value={Math.min(((comparison?.user.skillsCount ?? 0) / Math.max(comparison?.community.avgSkillsCount ?? 1, 1)) * 100, 100)} />
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Credits Earned</span>
+                <span>You: {comparison?.user.creditsEarned ?? 0} | Avg: {comparison?.community.avgCreditsEarned ?? 0}</span>
+              </div>
+              <Progress value={Math.min(((comparison?.user.creditsEarned ?? 0) / Math.max(comparison?.community.avgCreditsEarned ?? 1, 1)) * 100, 100)} />
             </div>
           </CardContent>
         </Card>
@@ -168,4 +243,3 @@ export function MyAnalyticsPage() {
     </div>
   );
 }
-
