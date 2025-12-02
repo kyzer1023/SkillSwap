@@ -35,7 +35,6 @@ import {
   User,
   MessageSquare,
   FileText,
-  AlertTriangle,
   Ban,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";

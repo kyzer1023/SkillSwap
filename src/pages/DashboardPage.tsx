@@ -94,7 +94,7 @@ export function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <Link to="/requests/new">
-            <Button className="gap-2" disabled={isSuspended}>
+            <Button className="gap-2" disabled={!!isSuspended}>
               <Plus className="h-4 w-4" />
               New Request
             </Button>
