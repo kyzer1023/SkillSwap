@@ -16,6 +16,8 @@ export const getCurrentUser = query({
       credits: v.number(),
       role: v.union(v.literal("user"), v.literal("admin")),
       isActive: v.boolean(),
+      suspendedUntil: v.optional(v.number()),
+      suspensionReason: v.optional(v.string()),
     }),
     v.null()
   ),
@@ -42,6 +44,8 @@ export const getCurrentUser = query({
       credits: user.credits,
       role: user.role,
       isActive: user.isActive,
+      suspendedUntil: user.suspendedUntil,
+      suspensionReason: user.suspensionReason,
     };
   },
 });

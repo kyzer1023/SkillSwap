@@ -173,6 +173,20 @@ export const getMyRequests = query({
   },
 });
 
+// Helper to check if user is suspended
+function isSuspended(user: { suspendedUntil?: number }): boolean {
+  return !!user.suspendedUntil && user.suspendedUntil > Date.now();
+}
+
+// Helper to format suspension end date
+function formatSuspensionEndDate(suspendedUntil: number): string {
+  return new Date(suspendedUntil).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 // Create service request
 export const createRequest = mutation({
   args: {
@@ -206,6 +220,15 @@ export const createRequest = mutation({
     // Admins cannot use platform features
     if (user.role === "admin") {
       return { success: false as const, error: "Administrators cannot create service requests" };
+    }
+
+    // Check if user is suspended
+    if (isSuspended(user)) {
+      const endDate = formatSuspensionEndDate(user.suspendedUntil!);
+      return { 
+        success: false as const, 
+        error: `Your account is suspended until ${endDate}. You cannot create service requests during this time.` 
+      };
     }
 
     // Validate credit amount if credit mode
@@ -593,6 +616,15 @@ export const acceptMatch = mutation({
     const currentUser = await ctx.db.get(session.userId);
     if (currentUser?.role === "admin") {
       return { success: false as const, error: "Administrators cannot participate in exchanges" };
+    }
+
+    // Check if user is suspended
+    if (currentUser && isSuspended(currentUser)) {
+      const endDate = formatSuspensionEndDate(currentUser.suspendedUntil!);
+      return { 
+        success: false as const, 
+        error: `Your account is suspended until ${endDate}. You cannot accept matches during this time.` 
+      };
     }
 
     const match = await ctx.db.get(args.matchId);
@@ -1130,6 +1162,18 @@ export const respondToNegotiation = mutation({
 
     if (!session || session.expiresAt < Date.now()) {
       return { success: false as const, error: "Invalid session" };
+    }
+
+    // Check if user is suspended (only for accepting)
+    if (args.accept) {
+      const currentUser = await ctx.db.get(session.userId);
+      if (currentUser && isSuspended(currentUser)) {
+        const endDate = formatSuspensionEndDate(currentUser.suspendedUntil!);
+        return { 
+          success: false as const, 
+          error: `Your account is suspended until ${endDate}. You cannot accept negotiations during this time.` 
+        };
+      }
     }
 
     const negotiation = await ctx.db.get(args.negotiationId);

@@ -24,6 +24,9 @@ import {
   Menu,
   X,
   ShieldAlert,
+  History,
+  Gavel,
+  ChevronDown,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -59,16 +62,17 @@ export function AdminLayout() {
     navigate("/");
   };
 
-  const adminNavItems = [
-    { path: "/admin", label: "Dashboard", icon: BarChart3 },
-    { path: "/admin/users", label: "Users", icon: Users },
-    { path: "/admin/reports", label: "Reports", icon: FileText },
-    { path: "/admin/disputes", label: "Disputes", icon: AlertTriangle },
-    { path: "/admin/fraud-alerts", label: "Fraud Alerts", icon: ShieldAlert },
-  ];
-
   const pendingFraudAlerts = fraudAlerts?.length ?? 0;
   const pendingItems = (overview?.pendingReports ?? 0) + (overview?.pendingDisputes ?? 0) + pendingFraudAlerts;
+
+  const moderationItems = [
+    { path: "/admin/reports", label: "Reports", icon: FileText, count: overview?.pendingReports ?? 0 },
+    { path: "/admin/disputes", label: "Disputes", icon: AlertTriangle, count: overview?.pendingDisputes ?? 0 },
+    { path: "/admin/fraud-alerts", label: "Fraud Alerts", icon: ShieldAlert, count: pendingFraudAlerts },
+  ];
+
+  const isModerationActive = moderationItems.some(item => location.pathname === item.path);
+  const totalModerationCount = moderationItems.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -87,33 +91,80 @@ export function AdminLayout() {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {adminNavItems.map((item) => (
-              <Link key={item.path} to={item.path}>
+            {/* Dashboard */}
+            <Link to="/admin">
+              <Button
+                variant={location.pathname === "/admin" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-2"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Dashboard
+              </Button>
+            </Link>
+
+            {/* Moderation Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
-                  variant={location.pathname === item.path ? "secondary" : "ghost"}
+                  variant={isModerationActive ? "secondary" : "ghost"}
                   size="sm"
                   className="gap-2"
                 >
-                  <item.icon className="h-4 w-4" />
-                  {item.label}
-                  {item.path === "/admin/reports" && (overview?.pendingReports ?? 0) > 0 && (
+                  <Gavel className="h-4 w-4" />
+                  Moderation
+                  {totalModerationCount > 0 && (
                     <Badge variant="destructive" className="ml-1 h-5 px-1.5">
-                      {overview?.pendingReports}
+                      {totalModerationCount}
                     </Badge>
                   )}
-                  {item.path === "/admin/disputes" && (overview?.pendingDisputes ?? 0) > 0 && (
-                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">
-                      {overview?.pendingDisputes}
-                    </Badge>
-                  )}
-                  {item.path === "/admin/fraud-alerts" && pendingFraudAlerts > 0 && (
-                    <Badge variant="destructive" className="ml-1 h-5 px-1.5">
-                      {pendingFraudAlerts}
-                    </Badge>
-                  )}
+                  <ChevronDown className="h-3 w-3" />
                 </Button>
-              </Link>
-            ))}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuLabel>Moderation Tools</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {moderationItems.map((item) => (
+                  <DropdownMenuItem
+                    key={item.path}
+                    onClick={() => navigate(item.path)}
+                    className="cursor-pointer"
+                  >
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.label}
+                    {item.count > 0 && (
+                      <Badge variant="destructive" className="ml-auto h-5 px-1.5">
+                        {item.count}
+                      </Badge>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* Users */}
+            <Link to="/admin/users">
+              <Button
+                variant={location.pathname === "/admin/users" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-2"
+              >
+                <Users className="h-4 w-4" />
+                Users
+              </Button>
+            </Link>
+
+            {/* Activity Log */}
+            <Link to="/admin/activity-log">
+              <Button
+                variant={location.pathname === "/admin/activity-log" ? "secondary" : "ghost"}
+                size="sm"
+                className="gap-2"
+              >
+                <History className="h-4 w-4" />
+                Activity Log
+              </Button>
+            </Link>
           </nav>
 
           {/* Right side actions */}
@@ -184,38 +235,73 @@ export function AdminLayout() {
         {mobileMenuOpen && (
           <nav className="md:hidden border-t bg-background p-4">
             <div className="flex flex-col gap-2">
-              {adminNavItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileMenuOpen(false)}
+              {/* Dashboard */}
+              <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  variant={location.pathname === "/admin" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
                 >
-                  <Button
-                    variant={
-                      location.pathname === item.path ? "secondary" : "ghost"
-                    }
-                    className="w-full justify-start gap-2"
+                  <BarChart3 className="h-4 w-4" />
+                  Dashboard
+                </Button>
+              </Link>
+
+              {/* Moderation Section */}
+              <div className="pt-2 border-t mt-2">
+                <p className="text-xs text-muted-foreground px-4 py-2 flex items-center gap-2">
+                  <Gavel className="h-3 w-3" />
+                  Moderation
+                  {totalModerationCount > 0 && (
+                    <Badge variant="destructive" className="h-5 px-1.5">
+                      {totalModerationCount}
+                    </Badge>
+                  )}
+                </p>
+                {moderationItems.map((item) => (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
                   >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                    {item.path === "/admin/reports" && (overview?.pendingReports ?? 0) > 0 && (
-                      <Badge variant="destructive" className="ml-auto">
-                        {overview?.pendingReports}
-                      </Badge>
-                    )}
-                    {item.path === "/admin/disputes" && (overview?.pendingDisputes ?? 0) > 0 && (
-                      <Badge variant="destructive" className="ml-auto">
-                        {overview?.pendingDisputes}
-                      </Badge>
-                    )}
-                    {item.path === "/admin/fraud-alerts" && pendingFraudAlerts > 0 && (
-                      <Badge variant="destructive" className="ml-auto">
-                        {pendingFraudAlerts}
-                      </Badge>
-                    )}
-                  </Button>
-                </Link>
-              ))}
+                    <Button
+                      variant={
+                        location.pathname === item.path ? "secondary" : "ghost"
+                      }
+                      className="w-full justify-start gap-2 pl-8"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {item.label}
+                      {item.count > 0 && (
+                        <Badge variant="destructive" className="ml-auto">
+                          {item.count}
+                        </Badge>
+                      )}
+                    </Button>
+                  </Link>
+                ))}
+              </div>
+
+              {/* Users */}
+              <Link to="/admin/users" onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  variant={location.pathname === "/admin/users" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  Users
+                </Button>
+              </Link>
+
+              {/* Activity Log */}
+              <Link to="/admin/activity-log" onClick={() => setMobileMenuOpen(false)}>
+                <Button
+                  variant={location.pathname === "/admin/activity-log" ? "secondary" : "ghost"}
+                  className="w-full justify-start gap-2"
+                >
+                  <History className="h-4 w-4" />
+                  Activity Log
+                </Button>
+              </Link>
             </div>
           </nav>
         )}

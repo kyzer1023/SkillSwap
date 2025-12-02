@@ -32,25 +32,36 @@ import {
   UserX,
   CreditCard,
   AlertTriangle,
+  Ban,
+  Heart,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
+
+type UserType = {
+  _id: Id<"users">;
+  _creationTime: number;
+  name: string;
+  email: string;
+  role: "user" | "admin";
+  credits: number;
+  isActive: boolean;
+  suspendedUntil?: number;
+  suspensionReason?: string;
+};
 
 export function AdminUsersPage() {
   const { sessionToken } = useAuthStore();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<{
-    id: Id<"users">;
-    name: string;
-    isActive: boolean;
-  } | null>(null);
-  const [actionDialog, setActionDialog] = useState<"activate" | "deactivate" | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
+  const [actionDialog, setActionDialog] = useState<"activate" | "deactivate" | "pardon" | null>(null);
 
   const users = useQuery(api.admin.getAllUsers, {
     sessionToken: sessionToken ?? "",
   });
 
   const toggleUserStatus = useMutation(api.admin.toggleUserStatus);
+  const pardonUser = useMutation(api.admin.pardonUser);
 
   const filteredUsers = users?.filter(
     (user) =>
@@ -63,7 +74,7 @@ export function AdminUsersPage() {
 
     const result = await toggleUserStatus({
       sessionToken,
-      userId: selectedUser.id,
+      userId: selectedUser._id,
       isActive: !selectedUser.isActive,
     });
 
@@ -84,11 +95,48 @@ export function AdminUsersPage() {
     setSelectedUser(null);
   };
 
+  const handlePardon = async () => {
+    if (!selectedUser || !sessionToken) return;
+
+    const result = await pardonUser({
+      sessionToken,
+      userId: selectedUser._id,
+    });
+
+    if (result) {
+      toast({
+        title: "Suspension Lifted",
+        description: `${selectedUser.name}'s suspension has been lifted.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to pardon user.",
+        variant: "destructive",
+      });
+    }
+
+    setActionDialog(null);
+    setSelectedUser(null);
+  };
+
+  const isSuspended = (user: UserType) => {
+    return user.suspendedUntil && user.suspendedUntil > Date.now();
+  };
+
+  const formatSuspensionDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
   const stats = {
     total: users?.length ?? 0,
     active: users?.filter((u) => u.isActive).length ?? 0,
+    suspended: users?.filter((u) => isSuspended(u)).length ?? 0,
     admins: users?.filter((u) => u.role === "admin").length ?? 0,
-    regularUsers: users?.filter((u) => u.role === "user").length ?? 0,
   };
 
   return (
@@ -122,11 +170,11 @@ export function AdminUsersPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Regular Users</CardTitle>
-            <Users className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-sm font-medium">Suspended</CardTitle>
+            <Ban className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.regularUsers}</div>
+            <div className="text-2xl font-bold text-red-600">{stats.suspended}</div>
           </CardContent>
         </Card>
 
@@ -206,43 +254,62 @@ export function AdminUsersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {user.isActive ? (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                            Active
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
-                            Inactive
-                          </Badge>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {user.isActive ? (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 w-fit">
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20 w-fit">
+                              Inactive
+                            </Badge>
+                          )}
+                          {isSuspended(user) && (
+                            <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 w-fit">
+                              <Ban className="mr-1 h-3 w-3" />
+                              Suspended until {formatSuspensionDate(user.suspendedUntil!)}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        {user.role !== "admin" && (
-                          <Button
-                            variant={user.isActive ? "outline" : "default"}
-                            size="sm"
-                            onClick={() => {
-                              setSelectedUser({
-                                id: user._id,
-                                name: user.name,
-                                isActive: user.isActive,
-                              });
-                              setActionDialog(user.isActive ? "deactivate" : "activate");
-                            }}
-                          >
-                            {user.isActive ? (
-                              <>
-                                <UserX className="mr-1 h-3 w-3" />
-                                Deactivate
-                              </>
-                            ) : (
-                              <>
-                                <UserCheck className="mr-1 h-3 w-3" />
-                                Activate
-                              </>
-                            )}
-                          </Button>
-                        )}
+                        <div className="flex justify-end gap-2">
+                          {user.role !== "admin" && isSuspended(user) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setActionDialog("pardon");
+                              }}
+                            >
+                              <Heart className="mr-1 h-3 w-3" />
+                              Pardon
+                            </Button>
+                          )}
+                          {user.role !== "admin" && (
+                            <Button
+                              variant={user.isActive ? "outline" : "default"}
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setActionDialog(user.isActive ? "deactivate" : "activate");
+                              }}
+                            >
+                              {user.isActive ? (
+                                <>
+                                  <UserX className="mr-1 h-3 w-3" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <UserCheck className="mr-1 h-3 w-3" />
+                                  Activate
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -266,16 +333,30 @@ export function AdminUsersPage() {
             <DialogTitle className="flex items-center gap-2">
               {actionDialog === "deactivate" ? (
                 <AlertTriangle className="h-5 w-5 text-amber-500" />
+              ) : actionDialog === "pardon" ? (
+                <Heart className="h-5 w-5 text-green-500" />
               ) : (
                 <UserCheck className="h-5 w-5 text-green-500" />
               )}
-              {actionDialog === "deactivate" ? "Deactivate User" : "Activate User"}
+              {actionDialog === "deactivate" 
+                ? "Deactivate User" 
+                : actionDialog === "pardon"
+                ? "Pardon User"
+                : "Activate User"}
             </DialogTitle>
             <DialogDescription>
               {actionDialog === "deactivate"
                 ? `Are you sure you want to deactivate ${selectedUser?.name}? They will no longer be able to access the platform.`
+                : actionDialog === "pardon"
+                ? `Are you sure you want to lift the suspension for ${selectedUser?.name}? They will be able to create requests and accept matches again.`
                 : `Are you sure you want to activate ${selectedUser?.name}? They will be able to access the platform again.`}
             </DialogDescription>
+            {actionDialog === "pardon" && selectedUser?.suspensionReason && (
+              <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
+                <span className="text-muted-foreground">Original reason: </span>
+                {selectedUser.suspensionReason}
+              </div>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setActionDialog(null)}>
@@ -283,9 +364,13 @@ export function AdminUsersPage() {
             </Button>
             <Button
               variant={actionDialog === "deactivate" ? "destructive" : "default"}
-              onClick={handleToggleStatus}
+              onClick={actionDialog === "pardon" ? handlePardon : handleToggleStatus}
             >
-              {actionDialog === "deactivate" ? "Deactivate" : "Activate"}
+              {actionDialog === "deactivate" 
+                ? "Deactivate" 
+                : actionDialog === "pardon"
+                ? "Lift Suspension"
+                : "Activate"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -293,4 +378,3 @@ export function AdminUsersPage() {
     </div>
   );
 }
-

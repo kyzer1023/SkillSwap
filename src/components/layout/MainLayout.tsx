@@ -277,21 +277,14 @@ export function MainLayout() {
                           if (!notification.isRead) {
                             handleMarkAsRead(notification._id);
                           }
+                          // Only navigate for specific notification types
                           if (notification.relatedId) {
                             const type = notification.type;
-                            if (type === "match_found") {
-                              navigate(`/requests/my`);
-                            } else if (
+                            if (
                               type === "transaction_started" ||
                               type === "transaction_completed"
                             ) {
                               navigate(`/transactions/${notification.relatedId}`);
-                            } else if (type === "rating_received") {
-                              navigate("/profile");
-                            } else if (type === "negotiation_received") {
-                              navigate(`/requests/${notification.relatedId}`);
-                            } else {
-                              navigate("/transactions");
                             }
                           }
                         }}
@@ -301,10 +294,10 @@ export function MainLayout() {
                             {getNotificationIcon(notification.type)}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
+                            <p className="text-sm font-medium">
                               {notification.title}
                             </p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">
+                            <p className="text-xs text-muted-foreground">
                               {notification.message}
                             </p>
                             <p className="text-[10px] text-muted-foreground mt-1">

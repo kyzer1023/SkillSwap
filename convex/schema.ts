@@ -12,6 +12,9 @@ export default defineSchema({
     credits: v.number(),
     role: v.union(v.literal("user"), v.literal("admin")),
     isActive: v.boolean(),
+    // Suspension fields for disciplinary action
+    suspendedUntil: v.optional(v.number()), // Timestamp when suspension ends
+    suspensionReason: v.optional(v.string()), // Reason for suspension
   })
     .index("by_email", ["email"])
     .index("by_role", ["role"]),
@@ -201,8 +204,7 @@ export default defineSchema({
     reportType: v.union(
       v.literal("request"),
       v.literal("feedback"),
-      v.literal("user"),
-      v.literal("transaction")
+      v.literal("user")
     ),
     targetId: v.string(),
     reason: v.string(),
@@ -255,6 +257,8 @@ export default defineSchema({
       v.literal("dispute_resolved"),
       v.literal("credit_received"),
       v.literal("negotiation_received"),
+      v.literal("suspension"), // User account suspended
+      v.literal("report_resolved"), // Reporter notified their report was actioned
       v.literal("system")
     ),
     title: v.string(),
@@ -296,4 +300,33 @@ export default defineSchema({
   })
     .index("by_token", ["token"])
     .index("by_userId", ["userId"]),
+
+  // Admin actions - tracking all admin moderation actions
+  adminActions: defineTable({
+    adminId: v.id("users"),
+    actionType: v.union(
+      v.literal("report_resolved"),
+      v.literal("report_dismissed"),
+      v.literal("dispute_resolved"),
+      v.literal("dispute_dismissed"),
+      v.literal("fraud_resolved"),
+      v.literal("fraud_dismissed"),
+      v.literal("fraud_investigating"),
+      v.literal("user_suspended"),
+      v.literal("user_pardoned"),
+      v.literal("user_activated"),
+      v.literal("user_deactivated")
+    ),
+    targetUserId: v.optional(v.id("users")),
+    relatedId: v.optional(v.string()), // Report ID, Dispute ID, Fraud Alert ID
+    details: v.string(),
+    suspendDays: v.optional(v.number()),
+    isUndone: v.boolean(),
+    undoneAt: v.optional(v.number()),
+    undoneBy: v.optional(v.id("users")),
+  })
+    .index("by_adminId", ["adminId"])
+    .index("by_targetUserId", ["targetUserId"])
+    .index("by_actionType", ["actionType"])
+    .index("by_isUndone", ["isUndone"]),
 });

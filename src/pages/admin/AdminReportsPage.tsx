@@ -16,6 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +36,7 @@ import {
   MessageSquare,
   FileText,
   AlertTriangle,
+  Ban,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 
@@ -37,12 +45,20 @@ type ReportType = {
   _creationTime: number;
   reporterId: Id<"users">;
   reporterName: string;
-  reportType: "request" | "feedback" | "user" | "transaction";
+  reportType: "request" | "feedback" | "user";
   targetId: string;
   targetName: string;
   reason: string;
   status: string;
 };
+
+const SUSPENSION_OPTIONS = [
+  { value: "1", label: "1 day" },
+  { value: "3", label: "3 days" },
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+] as const;
 
 export function AdminReportsPage() {
   const { sessionToken } = useAuthStore();
@@ -50,6 +66,11 @@ export function AdminReportsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [viewingReport, setViewingReport] = useState<ReportType | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
+  
+  // Two-step flow: review dialog -> suspension confirmation dialog
+  const [showSuspensionDialog, setShowSuspensionDialog] = useState(false);
+  const [suspendDays, setSuspendDays] = useState<"1" | "3" | "7" | "14" | "30">("7");
+  const [pendingReportId, setPendingReportId] = useState<string | null>(null);
 
   const reports = useQuery(api.admin.getPendingReports, {
     sessionToken: sessionToken ?? "",
@@ -58,7 +79,8 @@ export function AdminReportsPage() {
 
   const handleResolve = async (
     reportId: string,
-    action: "resolve" | "dismiss"
+    action: "resolve" | "dismiss",
+    withSuspension: boolean = false
   ) => {
     if (!sessionToken) return;
     setProcessingId(reportId);
@@ -69,15 +91,22 @@ export function AdminReportsPage() {
         reportId: reportId as Id<"reports">,
         action,
         adminNotes: adminNotes.trim() || undefined,
+        suspendDays: withSuspension ? parseInt(suspendDays) as 1 | 3 | 7 | 14 | 30 : undefined,
       });
 
       if (success) {
+        const suspensionText = withSuspension 
+          ? ` User suspended for ${suspendDays} day(s).` 
+          : "";
         toast({
           title: action === "resolve" ? "Report resolved" : "Report dismissed",
-          description: "The report has been processed.",
+          description: `The report has been processed.${suspensionText}`,
         });
         setViewingReport(null);
+        setShowSuspensionDialog(false);
         setAdminNotes("");
+        setSuspendDays("7");
+        setPendingReportId(null);
       }
     } catch {
       toast({
@@ -90,6 +119,12 @@ export function AdminReportsPage() {
     }
   };
 
+  const handleResolveClick = (reportId: string) => {
+    // Store the report ID and show suspension confirmation dialog
+    setPendingReportId(reportId);
+    setShowSuspensionDialog(true);
+  };
+
   const getReportTypeIcon = (type: string) => {
     switch (type) {
       case "request":
@@ -98,8 +133,6 @@ export function AdminReportsPage() {
         return <MessageSquare className="h-5 w-5" />;
       case "user":
         return <User className="h-5 w-5" />;
-      case "transaction":
-        return <AlertTriangle className="h-5 w-5" />;
       default:
         return <Flag className="h-5 w-5" />;
     }
@@ -113,7 +146,6 @@ export function AdminReportsPage() {
       request: "default",
       feedback: "secondary",
       user: "destructive",
-      transaction: "outline",
     };
     return (
       <Badge variant={variants[type] || "default"} className="capitalize">
@@ -132,14 +164,11 @@ export function AdminReportsPage() {
     });
   };
 
-  // Stats
   const reportStats = {
     total: reports?.length ?? 0,
     requests: reports?.filter((r) => r.reportType === "request").length ?? 0,
     feedback: reports?.filter((r) => r.reportType === "feedback").length ?? 0,
     users: reports?.filter((r) => r.reportType === "user").length ?? 0,
-    transactions:
-      reports?.filter((r) => r.reportType === "transaction").length ?? 0,
   };
 
   return (
@@ -152,7 +181,7 @@ export function AdminReportsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-4">
             <div className="text-2xl font-bold">{reportStats.total}</div>
@@ -181,14 +210,6 @@ export function AdminReportsPage() {
               {reportStats.users}
             </div>
             <p className="text-xs text-muted-foreground">Users</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <div className="text-2xl font-bold text-amber-600">
-              {reportStats.transactions}
-            </div>
-            <p className="text-xs text-muted-foreground">Transactions</p>
           </CardContent>
         </Card>
       </div>
@@ -256,7 +277,11 @@ export function AdminReportsPage() {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleResolve(report._id, "resolve")}
+                      onClick={() => {
+                        setViewingReport(report);
+                        setAdminNotes("");
+                        handleResolveClick(report._id);
+                      }}
                       disabled={processingId === report._id}
                     >
                       {processingId === report._id ? (
@@ -287,7 +312,9 @@ export function AdminReportsPage() {
       )}
 
       {/* Review Dialog */}
-      <Dialog open={!!viewingReport} onOpenChange={() => setViewingReport(null)}>
+      <Dialog open={!!viewingReport && !showSuspensionDialog} onOpenChange={() => {
+        setViewingReport(null);
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -345,7 +372,7 @@ export function AdminReportsPage() {
             </Button>
             <Button
               onClick={() => {
-                if (viewingReport) handleResolve(viewingReport._id, "resolve");
+                if (viewingReport) handleResolveClick(viewingReport._id);
               }}
               disabled={processingId === viewingReport?._id}
             >
@@ -355,6 +382,85 @@ export function AdminReportsPage() {
                 <Check className="h-4 w-4 mr-2" />
               )}
               Resolve & Take Action
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspension Confirmation Dialog */}
+      <Dialog open={showSuspensionDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowSuspensionDialog(false);
+          setPendingReportId(null);
+          setSuspendDays("7");
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-destructive" />
+              Apply Suspension?
+            </DialogTitle>
+            <DialogDescription>
+              Would you like to suspend the user as part of this resolution?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Target: <span className="font-medium text-foreground">{viewingReport?.targetName}</span>
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="suspend-days">Suspension Duration</Label>
+              <Select
+                value={suspendDays}
+                onValueChange={(value) => setSuspendDays(value as "1" | "3" | "7" | "14" | "30")}
+              >
+                <SelectTrigger id="suspend-days" className="w-full">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUSPENSION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                User will be unable to create requests or accept matches during suspension.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (pendingReportId) handleResolve(pendingReportId, "resolve", false);
+              }}
+              disabled={!!processingId}
+              className="w-full sm:w-auto"
+            >
+              {processingId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              Resolve Without Suspension
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingReportId) handleResolve(pendingReportId, "resolve", true);
+              }}
+              disabled={!!processingId}
+              className="w-full sm:w-auto"
+            >
+              {processingId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Resolve & Suspend
             </Button>
           </DialogFooter>
         </DialogContent>

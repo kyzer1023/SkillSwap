@@ -587,22 +587,22 @@ export function RequestDetailPage() {
                     {suggestedMatches.map((match) => (
                       <div
                         key={match._id}
-                        className="flex items-center justify-between p-4 rounded-lg border"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-lg border"
                       >
-                        <div className="flex items-center gap-4">
-                          <Avatar>
+                        <div className="flex items-center gap-4 min-w-0">
+                          <Avatar className="shrink-0">
                             <AvatarFallback>
                               {match.providerName.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
+                          <div className="min-w-0">
                             <Link
                               to={`/users/${match.providerId}`}
-                              className="font-medium hover:underline"
+                              className="font-medium hover:underline truncate block"
                             >
                               {match.providerName}
                             </Link>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                               <Badge variant="outline" className="capitalize text-xs">
                                 {match.skillLevel}
                               </Badge>
@@ -611,12 +611,12 @@ export function RequestDetailPage() {
                                 {match.providerRating.toFixed(1)}
                               </span>
                               {match.endorsements > 0 && (
-                                <span>+{match.endorsements} endorsements</span>
+                                <span className="whitespace-nowrap">+{match.endorsements} endorsements</span>
                               )}
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 shrink-0">
                           <Button
                             size="sm"
                             variant="outline"

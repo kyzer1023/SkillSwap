@@ -18,8 +18,9 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, CheckCircle, Play, Star, AlertTriangle, Flag, Award, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, CheckCircle, Play, Star, AlertTriangle, Flag, Award, XCircle, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 export function TransactionDetailPage() {
@@ -31,6 +32,7 @@ export function TransactionDetailPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
   const [selectedRating, setSelectedRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -42,6 +44,17 @@ export function TransactionDetailPage() {
   const [isDisputeDialogOpen, setIsDisputeDialogOpen] = useState(false);
   const [disputeDescription, setDisputeDescription] = useState("");
   const [isSubmittingDispute, setIsSubmittingDispute] = useState(false);
+
+  // Report request state
+  const [isReportDialogOpen, setIsReportDialogOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+
+  // Counter offer state
+  const [isCounterOfferDialogOpen, setIsCounterOfferDialogOpen] = useState(false);
+  const [counterOfferCredits, setCounterOfferCredits] = useState<number>(0);
+  const [counterOfferMessage, setCounterOfferMessage] = useState("");
+  const [isSubmittingCounterOffer, setIsSubmittingCounterOffer] = useState(false);
 
   const transaction = useQuery(api.transactions.getTransactionById, {
     sessionToken: sessionToken ?? "",
@@ -66,8 +79,11 @@ export function TransactionDetailPage() {
   const startTransaction = useMutation(api.transactions.startTransaction);
   const confirmCompletion = useMutation(api.transactions.confirmCompletion);
   const cancelTransaction = useMutation(api.transactions.cancelTransaction);
+  const rejectTransaction = useMutation(api.transactions.rejectTransaction);
   const submitRating = useMutation(api.ratings.submitRating);
   const openDispute = useMutation(api.transactions.openDispute);
+  const providerCounterOffer = useMutation(api.transactions.providerCounterOffer);
+  const reportRequestFromTransaction = useMutation(api.transactions.reportRequestFromTransaction);
   const endorseSkillMutation = useMutation(api.skills.endorseSkill);
 
   const handleStart = async () => {
@@ -138,6 +154,104 @@ export function TransactionDetailPage() {
       toast({ variant: "destructive", title: "Error", description: "Failed to cancel transaction." });
     } finally {
       setIsCancelling(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!sessionToken || !transactionId) return;
+    setIsRejecting(true);
+
+    try {
+      const result = await rejectTransaction({
+        sessionToken,
+        transactionId: transactionId as Id<"transactions">,
+      });
+
+      if (result.success) {
+        toast({ title: "Request declined", description: "You have declined this request. The requester will be notified." });
+        navigate("/transactions");
+      } else {
+        toast({ variant: "destructive", title: "Error", description: result.error });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Failed to decline request." });
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!sessionToken || !transaction?.requestId || !reportReason.trim()) return;
+    setIsSubmittingReport(true);
+
+    try {
+      const result = await reportRequestFromTransaction({
+        sessionToken,
+        transactionId: transactionId as Id<"transactions">,
+        reason: reportReason.trim(),
+      });
+
+      if (result.success) {
+        toast({
+          title: "Report submitted",
+          description: "Your report has been submitted for admin review. The transaction is paused until resolved.",
+        });
+        setIsReportDialogOpen(false);
+        setReportReason("");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error,
+        });
+      }
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to submit report.",
+      });
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
+
+  const handleSubmitCounterOffer = async () => {
+    if (!sessionToken || !transactionId || counterOfferCredits <= 0) return;
+    setIsSubmittingCounterOffer(true);
+
+    try {
+      const result = await providerCounterOffer({
+        sessionToken,
+        transactionId: transactionId as Id<"transactions">,
+        proposedCredits: counterOfferCredits,
+        message: counterOfferMessage.trim() || undefined,
+      });
+
+      if (result.success) {
+        toast({
+          title: "Counter offer sent",
+          description: "Your counter offer has been sent to the requester.",
+        });
+        setIsCounterOfferDialogOpen(false);
+        setCounterOfferCredits(0);
+        setCounterOfferMessage("");
+        navigate("/transactions");
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: result.error,
+        });
+      }
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to send counter offer.",
+      });
+    } finally {
+      setIsSubmittingCounterOffer(false);
     }
   };
 
@@ -240,7 +354,10 @@ export function TransactionDetailPage() {
 
   const isProvider = transaction.myRole === "provider";
   const isRequester = transaction.myRole === "requester";
-  const canDispute = transaction.status === "in_progress" || transaction.status === "pending";
+  // Dispute only available once work has started (in_progress)
+  const canDispute = transaction.status === "in_progress";
+  // Report request available only for provider when pending (before work starts)
+  const canReportRequest = transaction.status === "pending" && isProvider;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
@@ -338,13 +455,162 @@ export function TransactionDetailPage() {
           <CardTitle>Actions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {/* Provider actions when pending */}
           {transaction.status === "pending" && isProvider && (
-            <Button onClick={handleStart} disabled={isStarting} className="w-full gap-2">
-              {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Start Working
+            <>
+              <Button onClick={handleStart} disabled={isStarting} className="w-full gap-2">
+                {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Accept & Start Working
+              </Button>
+              
+              {/* Counter Offer Dialog */}
+              <Dialog open={isCounterOfferDialogOpen} onOpenChange={setIsCounterOfferDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" className="w-full gap-2">
+                    <MessageSquare className="h-4 w-4" />
+                    Counter Offer
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <MessageSquare className="h-5 w-5 text-primary" />
+                      Make a Counter Offer
+                    </DialogTitle>
+                    <DialogDescription>
+                      Propose different terms for this service request. The requester will be notified of your offer.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="py-4 space-y-4">
+                    <div>
+                      <Label htmlFor="counter-credits">Your proposed credits *</Label>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Input
+                          id="counter-credits"
+                          type="number"
+                          min={1}
+                          placeholder="Enter credit amount"
+                          value={counterOfferCredits || ""}
+                          onChange={(e) => setCounterOfferCredits(parseInt(e.target.value) || 0)}
+                        />
+                        <span className="text-sm text-muted-foreground">credits</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Current offer: {transaction.creditAmount} credits
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="counter-message">Message (optional)</Label>
+                      <Textarea
+                        id="counter-message"
+                        placeholder="Explain why you're proposing different terms..."
+                        value={counterOfferMessage}
+                        onChange={(e) => setCounterOfferMessage(e.target.value)}
+                        rows={3}
+                        className="mt-2"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsCounterOfferDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleSubmitCounterOffer}
+                      disabled={counterOfferCredits <= 0 || isSubmittingCounterOffer}
+                    >
+                      {isSubmittingCounterOffer && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      Send Counter Offer
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+              
+              <Button 
+                variant="outline" 
+                className="w-full gap-2"
+                onClick={handleReject}
+                disabled={isRejecting}
+              >
+                {isRejecting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <XCircle className="h-4 w-4" />
+                )}
+                Decline Request
+              </Button>
+            </>
+          )}
+
+          {/* Requester actions when pending */}
+          {transaction.status === "pending" && isRequester && (
+            <Button 
+              variant="outline" 
+              className="w-full gap-2"
+              onClick={handleCancel}
+              disabled={isCancelling}
+            >
+              {isCancelling ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <XCircle className="h-4 w-4" />
+              )}
+              Cancel Transaction
             </Button>
           )}
 
+          {/* Report Request - Available when pending (before work starts) - Provider only */}
+          {canReportRequest && (
+            <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="w-full gap-2">
+                  <Flag className="h-4 w-4" />
+                  Report Request
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Report Request
+                  </DialogTitle>
+                  <DialogDescription>
+                    If you believe this request violates our guidelines, please describe the issue below.
+                    The transaction will be <strong>paused</strong> until an administrator reviews your report.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="report-reason">Reason for report *</Label>
+                  <Textarea
+                    id="report-reason"
+                    placeholder="Please explain why you're reporting this request..."
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    rows={4}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Be specific about the issue. Include any relevant details that might help the admin review.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsReportDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleSubmitReport}
+                    disabled={!reportReason.trim() || isSubmittingReport}
+                  >
+                    {isSubmittingReport && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Submit Report
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* In Progress actions */}
           {transaction.status === "in_progress" && (
             <Button
               onClick={handleConfirm}
@@ -362,6 +628,58 @@ export function TransactionDetailPage() {
             </Button>
           )}
 
+          {/* Open Dispute - Only available when in_progress */}
+          {canDispute && (
+            <Dialog open={isDisputeDialogOpen} onOpenChange={setIsDisputeDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" className="w-full gap-2">
+                  <Flag className="h-4 w-4" />
+                  Open Dispute
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                    Open a Dispute
+                  </DialogTitle>
+                  <DialogDescription>
+                    If you're having issues with this transaction, describe the problem below. 
+                    An administrator will review your case.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <Label htmlFor="dispute-description">Describe the issue *</Label>
+                  <Textarea
+                    id="dispute-description"
+                    placeholder="Please explain what went wrong..."
+                    value={disputeDescription}
+                    onChange={(e) => setDisputeDescription(e.target.value)}
+                    rows={4}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Be specific about the problem. Include any relevant details that might help resolve the dispute.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsDisputeDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleSubmitDispute}
+                    disabled={!disputeDescription.trim() || isSubmittingDispute}
+                  >
+                    {isSubmittingDispute && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    Submit Dispute
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+
+          {/* Rating - After completion */}
           {transaction.status === "completed" && canRate?.canRate && (
             <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
               <DialogTrigger asChild>
@@ -453,74 +771,6 @@ export function TransactionDetailPage() {
                       <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : null}
                     Submit Rating
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          )}
-
-          {/* Cancel Transaction - Only for requester when pending */}
-          {transaction.status === "pending" && isRequester && (
-            <Button 
-              variant="outline" 
-              className="w-full gap-2"
-              onClick={handleCancel}
-              disabled={isCancelling}
-            >
-              {isCancelling ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <XCircle className="h-4 w-4" />
-              )}
-              Cancel Transaction
-            </Button>
-          )}
-
-          {/* Open Dispute - Available when in progress or pending */}
-          {canDispute && (
-            <Dialog open={isDisputeDialogOpen} onOpenChange={setIsDisputeDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="destructive" className="w-full gap-2">
-                  <Flag className="h-4 w-4" />
-                  Report Issue / Open Dispute
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-destructive" />
-                    Open a Dispute
-                  </DialogTitle>
-                  <DialogDescription>
-                    If you're having issues with this transaction, describe the problem below. 
-                    An administrator will review your case.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="py-4">
-                  <Label htmlFor="dispute-description">Describe the issue *</Label>
-                  <Textarea
-                    id="dispute-description"
-                    placeholder="Please explain what went wrong..."
-                    value={disputeDescription}
-                    onChange={(e) => setDisputeDescription(e.target.value)}
-                    rows={4}
-                    className="mt-2"
-                  />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Be specific about the problem. Include any relevant details that might help resolve the dispute.
-                  </p>
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsDisputeDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleSubmitDispute}
-                    disabled={!disputeDescription.trim() || isSubmittingDispute}
-                  >
-                    {isSubmittingDispute && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                    Submit Dispute
                   </Button>
                 </DialogFooter>
               </DialogContent>

@@ -16,6 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   ShieldAlert,
@@ -27,6 +35,7 @@ import {
   AlertTriangle,
   TrendingUp,
   Users,
+  Ban,
 } from "lucide-react";
 import { Id } from "../../../convex/_generated/dataModel";
 
@@ -41,11 +50,24 @@ type FraudAlertType = {
   status: "pending" | "investigating" | "resolved" | "dismissed";
 };
 
+const SUSPENSION_OPTIONS = [
+  { value: "1", label: "1 day" },
+  { value: "3", label: "3 days" },
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+] as const;
+
 export function AdminFraudAlertsPage() {
   const { sessionToken } = useAuthStore();
   const { toast } = useToast();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [viewingAlert, setViewingAlert] = useState<FraudAlertType | null>(null);
+  
+  // Two-step flow
+  const [showSuspensionDialog, setShowSuspensionDialog] = useState(false);
+  const [suspendDays, setSuspendDays] = useState<"1" | "3" | "7" | "14" | "30">("7");
+  const [pendingAlertId, setPendingAlertId] = useState<string | null>(null);
 
   const alerts = useQuery(api.admin.getFraudAlerts, {
     sessionToken: sessionToken ?? "",
@@ -54,7 +76,8 @@ export function AdminFraudAlertsPage() {
 
   const handleResolve = async (
     alertId: string,
-    action: "resolve" | "dismiss" | "investigate"
+    action: "resolve" | "dismiss" | "investigate",
+    withSuspension: boolean = false
   ) => {
     if (!sessionToken) return;
     setProcessingId(alertId);
@@ -64,15 +87,22 @@ export function AdminFraudAlertsPage() {
         sessionToken,
         alertId: alertId as Id<"fraudAlerts">,
         action,
+        suspendDays: withSuspension ? parseInt(suspendDays) as 1 | 3 | 7 | 14 | 30 : undefined,
       });
 
       if (success) {
         const actionText = action === "resolve" ? "resolved" : action === "dismiss" ? "dismissed" : "marked for investigation";
+        const suspensionText = withSuspension 
+          ? ` User suspended for ${suspendDays} day(s).` 
+          : "";
         toast({
           title: `Alert ${actionText}`,
-          description: "The fraud alert has been processed.",
+          description: `The fraud alert has been processed.${suspensionText}`,
         });
         setViewingAlert(null);
+        setShowSuspensionDialog(false);
+        setSuspendDays("7");
+        setPendingAlertId(null);
       }
     } catch {
       toast({
@@ -83,6 +113,11 @@ export function AdminFraudAlertsPage() {
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleResolveClick = (alertId: string) => {
+    setPendingAlertId(alertId);
+    setShowSuspensionDialog(true);
   };
 
   const getAlertTypeIcon = (type: string) => {
@@ -134,7 +169,6 @@ export function AdminFraudAlertsPage() {
     });
   };
 
-  // Stats
   const alertStats = {
     total: alerts?.length ?? 0,
     high: alerts?.filter((a) => a.severity === "high").length ?? 0,
@@ -244,7 +278,10 @@ export function AdminFraudAlertsPage() {
                     </Button>
                     <Button
                       size="sm"
-                      onClick={() => handleResolve(alert._id, "resolve")}
+                      onClick={() => {
+                        setViewingAlert(alert);
+                        handleResolveClick(alert._id);
+                      }}
                       disabled={processingId === alert._id}
                     >
                       {processingId === alert._id ? (
@@ -275,7 +312,7 @@ export function AdminFraudAlertsPage() {
       )}
 
       {/* Review Dialog */}
-      <Dialog open={!!viewingAlert} onOpenChange={() => setViewingAlert(null)}>
+      <Dialog open={!!viewingAlert && !showSuspensionDialog} onOpenChange={() => setViewingAlert(null)}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -343,7 +380,7 @@ export function AdminFraudAlertsPage() {
             </Button>
             <Button
               onClick={() => {
-                if (viewingAlert) handleResolve(viewingAlert._id, "resolve");
+                if (viewingAlert) handleResolveClick(viewingAlert._id);
               }}
               disabled={processingId === viewingAlert?._id}
             >
@@ -357,7 +394,83 @@ export function AdminFraudAlertsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Suspension Confirmation Dialog */}
+      <Dialog open={showSuspensionDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowSuspensionDialog(false);
+          setPendingAlertId(null);
+          setSuspendDays("7");
+        }
+      }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Ban className="h-5 w-5 text-destructive" />
+              Apply Suspension?
+            </DialogTitle>
+            <DialogDescription>
+              Would you like to suspend the user as part of this resolution?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              User: <span className="font-medium text-foreground">{viewingAlert?.userName}</span>
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="suspend-days">Suspension Duration</Label>
+              <Select
+                value={suspendDays}
+                onValueChange={(value) => setSuspendDays(value as "1" | "3" | "7" | "14" | "30")}
+              >
+                <SelectTrigger id="suspend-days" className="w-full">
+                  <SelectValue placeholder="Select duration" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUSPENSION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                User will be unable to create requests or accept matches during suspension.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (pendingAlertId) handleResolve(pendingAlertId, "resolve", false);
+              }}
+              disabled={!!processingId}
+            >
+              {processingId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Check className="h-4 w-4 mr-2" />
+              )}
+              Resolve Without Suspension
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (pendingAlertId) handleResolve(pendingAlertId, "resolve", true);
+              }}
+              disabled={!!processingId}
+            >
+              {processingId ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Ban className="h-4 w-4 mr-2" />
+              )}
+              Resolve & Suspend
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

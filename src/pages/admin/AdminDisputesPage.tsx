@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Check, X, RotateCcw, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, X, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 export function AdminDisputesPage() {
@@ -16,7 +16,7 @@ export function AdminDisputesPage() {
   const disputes = useQuery(api.admin.getPendingDisputes, { sessionToken: sessionToken ?? "" });
   const resolveDispute = useMutation(api.admin.resolveDispute);
 
-  const handleResolve = async (disputeId: string, action: "reverse" | "complete" | "dismiss") => {
+  const handleResolve = async (disputeId: string, action: "complete" | "dismiss") => {
     if (!sessionToken) return;
     setProcessingId(disputeId);
 
@@ -76,8 +76,8 @@ export function AdminDisputesPage() {
                   <div className="flex flex-col gap-2">
                     <Button
                       size="sm"
-                      variant="destructive"
-                      onClick={() => handleResolve(dispute._id, "reverse")}
+                      variant="outline"
+                      onClick={() => handleResolve(dispute._id, "dismiss")}
                       disabled={processingId === dispute._id}
                       className="gap-1"
                     >
@@ -85,8 +85,8 @@ export function AdminDisputesPage() {
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          <RotateCcw className="h-4 w-4" />
-                          Reverse
+                          <X className="h-4 w-4" />
+                          Dismiss
                         </>
                       )}
                     </Button>
@@ -102,22 +102,6 @@ export function AdminDisputesPage() {
                         <>
                           <Check className="h-4 w-4" />
                           Complete
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleResolve(dispute._id, "dismiss")}
-                      disabled={processingId === dispute._id}
-                      className="gap-1"
-                    >
-                      {processingId === dispute._id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <X className="h-4 w-4" />
-                          Dismiss
                         </>
                       )}
                     </Button>

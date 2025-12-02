@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   CreditCard,
   FileText,
@@ -21,6 +22,7 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  Ban,
 } from "lucide-react";
 
 export function DashboardPage() {
@@ -52,8 +54,34 @@ export function DashboardPage() {
     (t) => t.status === "pending" || t.status === "in_progress"
   );
 
+  // Check if user is currently suspended
+  const isSuspended = currentUser?.suspendedUntil && currentUser.suspendedUntil > Date.now();
+  const suspensionEndDate = currentUser?.suspendedUntil 
+    ? new Date(currentUser.suspendedUntil).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+
   return (
     <div className="space-y-8 animate-fade-in">
+      {/* Suspension Banner */}
+      {isSuspended && (
+        <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+          <Ban className="h-5 w-5" />
+          <AlertTitle className="font-semibold">Account Suspended</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p>Your account is currently suspended until <strong>{suspensionEndDate}</strong>.</p>
+            <p className="mt-1">During this time, you cannot create service requests or accept matches.</p>
+            {currentUser?.suspensionReason && (
+              <p className="mt-2 text-sm opacity-80">Reason: {currentUser.suspensionReason}</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -66,7 +94,7 @@ export function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <Link to="/requests/new">
-            <Button className="gap-2">
+            <Button className="gap-2" disabled={isSuspended}>
               <Plus className="h-4 w-4" />
               New Request
             </Button>

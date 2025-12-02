@@ -19,6 +19,8 @@ export const getMyNotifications = query({
         v.literal("dispute_resolved"),
         v.literal("credit_received"),
         v.literal("negotiation_received"),
+        v.literal("suspension"),
+        v.literal("report_resolved"),
         v.literal("system")
       ),
       title: v.string(),

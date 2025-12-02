@@ -398,6 +398,256 @@ export const cancelTransaction = mutation({
   },
 });
 
+// Reject transaction (provider declines to work on it)
+export const rejectTransaction = mutation({
+  args: {
+    sessionToken: v.string(),
+    transactionId: v.id("transactions"),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) {
+      return { success: false as const, error: "Invalid session" };
+    }
+
+    const tx = await ctx.db.get(args.transactionId);
+    if (!tx) {
+      return { success: false as const, error: "Transaction not found" };
+    }
+
+    // Only provider can reject, and only if pending
+    if (tx.providerId !== session.userId) {
+      return { success: false as const, error: "Only provider can reject" };
+    }
+
+    if (tx.status !== "pending") {
+      return { success: false as const, error: "Can only reject pending transactions" };
+    }
+
+    // Cancel the transaction
+    await ctx.db.patch(args.transactionId, { status: "cancelled" });
+    
+    // Reopen the request so requester can find another provider
+    await ctx.db.patch(tx.requestId, { 
+      status: "open",
+      matchedProviderId: undefined,
+    });
+
+    // Refund reserved credits to requester
+    if (tx.transactionType === "credit" && tx.creditAmount) {
+      const requester = await ctx.db.get(tx.requesterId);
+      if (requester) {
+        const newBalance = requester.credits + tx.creditAmount;
+        await ctx.db.patch(tx.requesterId, { credits: newBalance });
+
+        await ctx.db.insert("creditHistory", {
+          userId: tx.requesterId,
+          transactionId: args.transactionId,
+          amount: tx.creditAmount,
+          type: "released",
+          description: "Refund - provider declined the request",
+          balanceAfter: newBalance,
+        });
+      }
+    }
+
+    // Notify requester
+    await ctx.db.insert("notifications", {
+      userId: tx.requesterId,
+      type: "system",
+      title: "Provider Declined",
+      message: "The matched provider has declined your request. Your request is now open for other providers.",
+      relatedId: tx.requestId,
+      isRead: false,
+    });
+
+    return { success: true as const };
+  },
+});
+
+// Provider counter offer from transaction (propose different terms)
+export const providerCounterOffer = mutation({
+  args: {
+    sessionToken: v.string(),
+    transactionId: v.id("transactions"),
+    proposedCredits: v.number(),
+    message: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) {
+      return { success: false as const, error: "Invalid session" };
+    }
+
+    const tx = await ctx.db.get(args.transactionId);
+    if (!tx) {
+      return { success: false as const, error: "Transaction not found" };
+    }
+
+    // Only provider can counter offer, and only if pending
+    if (tx.providerId !== session.userId) {
+      return { success: false as const, error: "Only provider can counter offer" };
+    }
+
+    if (tx.status !== "pending") {
+      return { success: false as const, error: "Can only counter offer pending transactions" };
+    }
+
+    // Cancel the current transaction
+    await ctx.db.patch(args.transactionId, { status: "cancelled" });
+    
+    // Refund reserved credits to requester
+    if (tx.transactionType === "credit" && tx.creditAmount) {
+      const requester = await ctx.db.get(tx.requesterId);
+      if (requester) {
+        const newBalance = requester.credits + tx.creditAmount;
+        await ctx.db.patch(tx.requesterId, { credits: newBalance });
+
+        await ctx.db.insert("creditHistory", {
+          userId: tx.requesterId,
+          transactionId: args.transactionId,
+          amount: tx.creditAmount,
+          type: "released",
+          description: "Refund - provider made counter offer",
+          balanceAfter: newBalance,
+        });
+      }
+    }
+
+    // Reopen the request
+    await ctx.db.patch(tx.requestId, { 
+      status: "open",
+      matchedProviderId: undefined,
+    });
+
+    // Get or create the suggested match
+    const existingMatch = await ctx.db
+      .query("suggestedMatches")
+      .withIndex("by_requestId", (q) => q.eq("requestId", tx.requestId))
+      .filter((q) => q.eq(q.field("providerId"), tx.providerId))
+      .first();
+
+    let matchId = existingMatch?._id;
+    if (!matchId) {
+      // Create a new suggested match
+      matchId = await ctx.db.insert("suggestedMatches", {
+        requestId: tx.requestId,
+        providerId: tx.providerId,
+        matchScore: 100,
+        status: "pending",
+      });
+    } else {
+      await ctx.db.patch(matchId, { status: "pending" });
+    }
+
+    // Create a negotiation with the counter offer
+    await ctx.db.insert("negotiations", {
+      requestId: tx.requestId,
+      matchId: matchId,
+      requesterId: tx.requesterId,
+      providerId: tx.providerId,
+      initiatorRole: "provider",
+      proposedExchangeMode: "credit",
+      proposedCredits: args.proposedCredits,
+      message: args.message,
+      status: "pending",
+    });
+
+    // Notify requester
+    const provider = await ctx.db.get(tx.providerId);
+    await ctx.db.insert("notifications", {
+      userId: tx.requesterId,
+      type: "negotiation_received",
+      title: "Counter Offer Received",
+      message: `${provider?.name ?? "A provider"} has made a counter offer of ${args.proposedCredits} credits for your request.`,
+      relatedId: tx.requestId,
+      isRead: false,
+    });
+
+    return { success: true as const };
+  },
+});
+
+// Report request from transaction (pauses the transaction)
+export const reportRequestFromTransaction = mutation({
+  args: {
+    sessionToken: v.string(),
+    transactionId: v.id("transactions"),
+    reason: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+
+    if (!session || session.expiresAt < Date.now()) {
+      return { success: false as const, error: "Invalid session" };
+    }
+
+    const tx = await ctx.db.get(args.transactionId);
+    if (!tx) {
+      return { success: false as const, error: "Transaction not found" };
+    }
+
+    // Only provider can report the request
+    if (tx.providerId !== session.userId) {
+      return { success: false as const, error: "Only provider can report the request" };
+    }
+
+    if (tx.status !== "pending") {
+      return { success: false as const, error: "Can only report pending transactions" };
+    }
+
+    // Create the report
+    await ctx.db.insert("reports", {
+      reporterId: session.userId,
+      reportType: "request",
+      targetId: tx.requestId,
+      reason: args.reason,
+      status: "pending",
+    });
+
+    // Mark request as reported
+    await ctx.db.patch(tx.requestId, { isReported: true });
+
+    // Put transaction on hold (use disputed status to pause it)
+    await ctx.db.patch(args.transactionId, { status: "disputed" });
+
+    // Notify requester
+    await ctx.db.insert("notifications", {
+      userId: tx.requesterId,
+      type: "system",
+      title: "Request Under Review",
+      message: "Your request has been reported and is under admin review. The transaction is paused until this is resolved.",
+      relatedId: tx.requestId,
+      isRead: false,
+    });
+
+    return { success: true as const };
+  },
+});
+
 // Get credit balance and history
 export const getCreditInfo = query({
   args: { sessionToken: v.string() },
@@ -488,16 +738,20 @@ export const reportDispute = mutation({
       return { success: false as const, error: "Unauthorized" };
     }
 
-    // Check if dispute already exists
-    const existingDispute = await ctx.db
+    // Check if there's an active dispute (open or under_review) - dismissed disputes allow new submissions
+    const existingDisputes = await ctx.db
       .query("disputes")
       .withIndex("by_transactionId", (q) =>
         q.eq("transactionId", args.transactionId)
       )
-      .first();
+      .collect();
 
-    if (existingDispute) {
-      return { success: false as const, error: "Dispute already exists" };
+    const activeDispute = existingDisputes.find(
+      (d) => d.status === "open" || d.status === "under_review"
+    );
+
+    if (activeDispute) {
+      return { success: false as const, error: "An active dispute already exists for this transaction" };
     }
 
     const disputeId = await ctx.db.insert("disputes", {
@@ -550,16 +804,20 @@ export const openDispute = mutation({
       return { success: false as const, error: "Cannot dispute this transaction" };
     }
 
-    // Check if dispute already exists
-    const existingDispute = await ctx.db
+    // Check if there's an active dispute (open or under_review) - dismissed disputes allow new submissions
+    const existingDisputes = await ctx.db
       .query("disputes")
       .withIndex("by_transactionId", (q) =>
         q.eq("transactionId", args.transactionId)
       )
-      .first();
+      .collect();
 
-    if (existingDispute) {
-      return { success: false as const, error: "A dispute has already been opened for this transaction" };
+    const activeDispute = existingDisputes.find(
+      (d) => d.status === "open" || d.status === "under_review"
+    );
+
+    if (activeDispute) {
+      return { success: false as const, error: "An active dispute already exists for this transaction" };
     }
 
     const disputeId = await ctx.db.insert("disputes", {
@@ -585,4 +843,3 @@ export const openDispute = mutation({
     return { success: true as const, disputeId };
   },
 });
-
