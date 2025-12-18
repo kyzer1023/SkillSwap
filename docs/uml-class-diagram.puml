@@ -1,0 +1,550 @@
+@startuml SkillSwap_Class_Diagram
+
+' ==================================
+' SKILLSWAP - UML CLASS DIAGRAM
+' A Skill Exchange Platform
+' ==================================
+
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classBackgroundColor #FEFECE
+skinparam classHeaderBackgroundColor #ADD1B2
+skinparam classBorderColor #A80036
+skinparam stereotypeCBackgroundColor #ADD1B2
+skinparam packageBackgroundColor #FFFFFF
+skinparam packageBorderColor #707070
+skinparam arrowColor #707070
+skinparam linetype ortho
+
+title **SkillSwap Platform - Domain Class Diagram**\nSkill Exchange & Credit-Based Service Marketplace
+
+' ==================================
+' USER MANAGEMENT PACKAGE
+' ==================================
+package "User Management" #E8F5E9 {
+  
+  class User <<Entity>> {
+    - _id: Id<"users">
+    - _creationTime: number
+    --
+    - email: string
+    - passwordHash: string
+    - name: string
+    - bio: string?
+    - profilePicture: Id<"_storage">?
+    - credits: number
+    - role: "user" | "admin"
+    - isActive: boolean
+    - suspendedUntil: number?
+    - suspensionReason: string?
+    ==
+    + getCurrentUser(sessionToken): User
+    + getUserById(userId): User
+    + updateProfile(name, bio, picture): boolean
+    + searchUsersBySkill(skillName): User[]
+    + reportUser(userId, reason): Result
+  }
+
+  class Session <<Entity>> {
+    - _id: Id<"sessions">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - token: string
+    - expiresAt: number
+    ==
+    + login(email, password): Session
+    + logout(sessionToken): boolean
+    + register(email, password, name): Result
+    + validateSession(token): boolean
+  }
+
+  class Skill <<Entity>> {
+    - _id: Id<"skills">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - name: string
+    - level: "beginner" | "intermediate" | "expert"
+    - endorsements: number
+    ==
+    + getUserSkills(userId): Skill[]
+    + addSkill(name, level): Result
+    + updateSkill(skillId, level): boolean
+    + deleteSkill(skillId): boolean
+    + searchSkills(query): string[]
+    + endorseSkill(skillId, transactionId): Result
+  }
+
+  class SkillEndorsement <<Entity>> {
+    - _id: Id<"skillEndorsements">
+    - _creationTime: number
+    --
+    - skillId: Id<"skills">
+    - endorserId: Id<"users">
+    - transactionId: Id<"transactions">
+  }
+
+  class PortfolioItem <<Entity>> {
+    - _id: Id<"portfolioItems">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - title: string
+    - description: string?
+    - fileId: Id<"_storage">
+    - fileType: "image" | "document"
+    ==
+    + getPortfolioItems(userId): PortfolioItem[]
+    + addPortfolioItem(title, file): Result
+    + deletePortfolioItem(itemId): boolean
+  }
+
+  class ExternalLink <<Entity>> {
+    - _id: Id<"externalLinks">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - platform: string
+    - url: string
+    ==
+    + getExternalLinks(userId): ExternalLink[]
+    + addLink(platform, url): Result
+    + deleteLink(linkId): boolean
+  }
+
+}
+
+' ==================================
+' SERVICE LISTINGS PACKAGE
+' ==================================
+package "Service Listings" #E3F2FD {
+
+  class ServiceListing <<Entity>> {
+    - _id: Id<"serviceListings">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - title: string
+    - description: string
+    - skillRequired: string
+    - exchangeMode: "credit" | "skill_swap" | "both"
+    - creditAmount: number?
+    - isActive: boolean
+    ==
+    + getUserListings(userId): ServiceListing[]
+    + getActiveListings(limit?): ServiceListing[]
+    + searchListings(query): ServiceListing[]
+    + createListing(title, description, ...): Result
+    + updateListing(listingId, updates): boolean
+    + deleteListing(listingId): boolean
+  }
+
+}
+
+' ==================================
+' SERVICE REQUESTS PACKAGE
+' ==================================
+package "Service Requests" #FFF3E0 {
+
+  class ServiceRequest <<Entity>> {
+    - _id: Id<"serviceRequests">
+    - _creationTime: number
+    --
+    - requesterId: Id<"users">
+    - title: string
+    - description: string
+    - skillNeeded: string
+    - exchangeMode: "credit" | "skill_swap"
+    - creditAmount: number?
+    - skillOffered: string?
+    - status: RequestStatus
+    - matchedProviderId: Id<"users">?
+    - isReported: boolean
+    ==
+    + getOpenRequests(limit?): ServiceRequest[]
+    + getRequestById(requestId): ServiceRequest
+    + getMyRequests(): ServiceRequest[]
+    + createRequest(title, description, ...): Result
+    + updateRequest(requestId, updates): Result
+    + cancelRequest(requestId): boolean
+    + reportRequest(requestId, reason): Result
+    + searchRequests(query): ServiceRequest[]
+  }
+
+  enum RequestStatus <<enumeration>> {
+    open
+    matched
+    in_progress
+    completed
+    cancelled
+  }
+
+  class SuggestedMatch <<Entity>> {
+    - _id: Id<"suggestedMatches">
+    - _creationTime: number
+    --
+    - requestId: Id<"serviceRequests">
+    - providerId: Id<"users">
+    - matchScore: number
+    - status: "pending" | "accepted" | "rejected"
+    ==
+    + getSuggestedMatches(requestId): SuggestedMatch[]
+    + acceptMatch(matchId): Result
+    + rejectMatch(matchId): boolean
+    + refreshMatchesForRequest(requestId): Result
+  }
+
+  class Negotiation <<Entity>> {
+    - _id: Id<"negotiations">
+    - _creationTime: number
+    --
+    - requestId: Id<"serviceRequests">
+    - matchId: Id<"suggestedMatches">
+    - requesterId: Id<"users">
+    - providerId: Id<"users">
+    - initiatorRole: "requester" | "provider"
+    - proposedExchangeMode: "credit" | "skill_swap"
+    - proposedCredits: number?
+    - proposedSkillOffered: string?
+    - message: string?
+    - status: NegotiationStatus
+    ==
+    + sendNegotiation(matchId, terms): Result
+    + sendProviderCounterOffer(negotiationId, terms): Result
+    + sendRequesterCounterOffer(negotiationId, terms): Result
+    + getNegotiationsForRequest(requestId): Negotiation[]
+    + respondToNegotiation(negotiationId, accept): Result
+  }
+
+  enum NegotiationStatus <<enumeration>> {
+    pending
+    accepted
+    rejected
+    expired
+  }
+
+}
+
+' ==================================
+' TRANSACTIONS PACKAGE
+' ==================================
+package "Transactions" #F3E5F5 {
+
+  class Transaction <<Entity>> {
+    - _id: Id<"transactions">
+    - _creationTime: number
+    --
+    - requestId: Id<"serviceRequests">
+    - requesterId: Id<"users">
+    - providerId: Id<"users">
+    - transactionType: "credit" | "skill_swap"
+    - creditAmount: number?
+    - skillOffered: string?
+    - skillReceived: string?
+    - status: TransactionStatus
+    - requesterConfirmed: boolean
+    - providerConfirmed: boolean
+    - completedAt: number?
+    ==
+    + getMyTransactions(): Transaction[]
+    + getTransactionById(transactionId): Transaction
+    + startTransaction(transactionId): Result
+    + confirmCompletion(transactionId): Result
+    + cancelTransaction(transactionId): Result
+    + rejectTransaction(transactionId): Result
+    + providerCounterOffer(transactionId, credits): Result
+    + openDispute(transactionId, description): Result
+  }
+
+  enum TransactionStatus <<enumeration>> {
+    pending
+    in_progress
+    completed
+    disputed
+    cancelled
+    reversed
+  }
+
+  class CreditHistory <<Entity>> {
+    - _id: Id<"creditHistory">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - transactionId: Id<"transactions">?
+    - amount: number
+    - type: CreditType
+    - description: string
+    - balanceAfter: number
+    ==
+    + getCreditInfo(): CreditInfo
+  }
+
+  enum CreditType <<enumeration>> {
+    earned
+    spent
+    reserved
+    released
+    initial
+    adjustment
+  }
+
+}
+
+' ==================================
+' RATINGS & FEEDBACK PACKAGE
+' ==================================
+package "Ratings & Feedback" #FCE4EC {
+
+  class Rating <<Entity>> {
+    - _id: Id<"ratings">
+    - _creationTime: number
+    --
+    - transactionId: Id<"transactions">
+    - raterId: Id<"users">
+    - rateeId: Id<"users">
+    - raterRole: "requester" | "provider"
+    - rating: number {1-5}
+    - comment: string?
+    - response: string?
+    - isReported: boolean
+    ==
+    + getUserRatings(userId): Rating[]
+    + getMyReceivedRatings(): Rating[]
+    + canRateTransaction(transactionId): boolean
+    + submitRating(transactionId, rating, comment?): Result
+    + respondToRating(ratingId, response): Result
+    + reportRating(ratingId, reason): Result
+    + getReputationSummary(userId): ReputationSummary
+  }
+
+}
+
+' ==================================
+' MODERATION & ADMIN PACKAGE
+' ==================================
+package "Moderation & Admin" #FFEBEE {
+
+  class Report <<Entity>> {
+    - _id: Id<"reports">
+    - _creationTime: number
+    --
+    - reporterId: Id<"users">
+    - reportType: "request" | "feedback" | "user"
+    - targetId: string
+    - reason: string
+    - evidence: Id<"_storage">?
+    - status: ReportStatus
+    - adminNotes: string?
+    - resolvedBy: Id<"users">?
+    - resolvedAt: number?
+    ==
+    + getPendingReports(): Report[]
+    + resolveReport(reportId, action, notes?, suspendDays?): boolean
+  }
+
+  enum ReportStatus <<enumeration>> {
+    pending
+    reviewed
+    resolved
+    dismissed
+  }
+
+  class Dispute <<Entity>> {
+    - _id: Id<"disputes">
+    - _creationTime: number
+    --
+    - transactionId: Id<"transactions">
+    - reporterId: Id<"users">
+    - description: string
+    - evidence: Id<"_storage">?
+    - status: DisputeStatus
+    - resolution: string?
+    - resolvedBy: Id<"users">?
+    - resolvedAt: number?
+    ==
+    + getPendingDisputes(): Dispute[]
+    + resolveDispute(disputeId, action, resolution): Result
+  }
+
+  enum DisputeStatus <<enumeration>> {
+    open
+    under_review
+    resolved
+    dismissed
+  }
+
+  class FraudAlert <<Entity>> {
+    - _id: Id<"fraudAlerts">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - alertType: FraudAlertType
+    - description: string
+    - severity: "low" | "medium" | "high"
+    - status: FraudStatus
+    - resolvedBy: Id<"users">?
+    - resolvedAt: number?
+    ==
+    + getFraudAlerts(): FraudAlert[]
+    + resolveFraudAlert(alertId, action, suspendDays?): boolean
+  }
+
+  enum FraudAlertType <<enumeration>> {
+    unusual_volume
+    repeated_transfers
+    suspicious_pattern
+  }
+
+  enum FraudStatus <<enumeration>> {
+    pending
+    investigating
+    resolved
+    dismissed
+  }
+
+  class AdminAction <<Entity>> {
+    - _id: Id<"adminActions">
+    - _creationTime: number
+    --
+    - adminId: Id<"users">
+    - actionType: AdminActionType
+    - targetUserId: Id<"users">?
+    - relatedId: string?
+    - details: string
+    - suspendDays: number?
+    - isUndone: boolean
+    - undoneAt: number?
+    - undoneBy: Id<"users">?
+    ==
+    + getAdminActions(limit?, showUndone?): AdminAction[]
+    + undoAdminAction(actionId): Result
+  }
+
+  enum AdminActionType <<enumeration>> {
+    report_resolved
+    report_dismissed
+    dispute_resolved
+    dispute_dismissed
+    fraud_resolved
+    fraud_dismissed
+    fraud_investigating
+    user_suspended
+    user_pardoned
+    user_activated
+    user_deactivated
+  }
+
+}
+
+' ==================================
+' NOTIFICATIONS PACKAGE
+' ==================================
+package "Notifications" #E0F7FA {
+
+  class Notification <<Entity>> {
+    - _id: Id<"notifications">
+    - _creationTime: number
+    --
+    - userId: Id<"users">
+    - type: NotificationType
+    - title: string
+    - message: string
+    - relatedId: string?
+    - isRead: boolean
+    ==
+    + getMyNotifications(limit?): Notification[]
+    + getUnreadCount(): number
+    + markAsRead(notificationId): boolean
+    + markAllAsRead(): boolean
+    + deleteNotification(notificationId): boolean
+  }
+
+  enum NotificationType <<enumeration>> {
+    match_found
+    match_accepted
+    match_rejected
+    transaction_started
+    transaction_completed
+    rating_received
+    dispute_opened
+    dispute_resolved
+    credit_received
+    negotiation_received
+    suspension
+    report_resolved
+    system
+  }
+
+}
+
+' ==================================
+' ANALYTICS PACKAGE
+' ==================================
+package "Analytics" #FFF8E1 {
+
+  class Analytics <<Service>> {
+    ==
+    + getSystemOverview(): SystemOverview
+    + getModuleAnalytics(): ModuleAnalytics
+    + getActivityTrends(days?): ActivityTrend[]
+    + getTopSkills(limit?): TopSkill[]
+    + getUserAnalytics(userId): UserAnalytics
+  }
+
+}
+
+' ==================================
+' RELATIONSHIPS
+' ==================================
+
+' User relationships
+User "1" *-- "many" Session : has
+User "1" *-- "many" Skill : possesses
+User "1" *-- "many" PortfolioItem : owns
+User "1" *-- "many" ExternalLink : has
+User "1" *-- "many" ServiceListing : offers
+User "1" *-- "many" ServiceRequest : creates
+User "1" *-- "many" CreditHistory : has
+User "1" *-- "many" Notification : receives
+User "1" *-- "many" Rating : "gives/receives"
+
+' Skill relationships
+Skill "1" *-- "many" SkillEndorsement : receives
+
+' Service Request relationships
+ServiceRequest "1" *-- "many" SuggestedMatch : generates
+ServiceRequest "1" *-- "many" Negotiation : involves
+ServiceRequest "1" -- "0..1" Transaction : results_in
+SuggestedMatch "1" *-- "many" Negotiation : leads_to
+
+' Transaction relationships
+Transaction "1" *-- "0..1" Dispute : may_have
+Transaction "1" *-- "many" Rating : receives
+
+' Moderation relationships
+Report "many" -- "1" User : targets
+FraudAlert "many" -- "1" User : flags
+AdminAction "many" -- "1" User : performed_by
+AdminAction "many" -- "0..1" User : targets
+
+' Analytics uses all entities
+Analytics ..> User : analyzes
+Analytics ..> ServiceRequest : analyzes
+Analytics ..> Transaction : analyzes
+Analytics ..> Skill : analyzes
+
+' Status enums
+ServiceRequest ..> RequestStatus
+Negotiation ..> NegotiationStatus
+Transaction ..> TransactionStatus
+CreditHistory ..> CreditType
+Report ..> ReportStatus
+Dispute ..> DisputeStatus
+FraudAlert ..> FraudAlertType
+FraudAlert ..> FraudStatus
+AdminAction ..> AdminActionType
+Notification ..> NotificationType
+
+@enduml
+
