@@ -120,7 +120,7 @@ export function TransactionDetailPage() {
 
       if (result.success) {
         if (result.completed) {
-          toast({ title: "Transaction completed!", description: "Don't forget to leave a rating." });
+          toast({ title: "Transaction completed!", description: "Don't forget to leave feedback." });
         } else {
           toast({ title: "Confirmed!", description: "Waiting for the other party to confirm." });
         }
@@ -685,7 +685,7 @@ export function TransactionDetailPage() {
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full gap-2">
                   <Star className="h-4 w-4" />
-                  Leave a Rating
+                  Leave Feedback
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
