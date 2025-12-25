@@ -225,3 +225,39 @@ export const changePassword = mutation({
   },
 });
 
+// Promote user to admin - ONLY works when there are no admins yet (bootstrap)
+export const promoteToAdmin = mutation({
+  args: {
+    email: v.string(),
+  },
+  returns: v.union(
+    v.object({ success: v.literal(true) }),
+    v.object({ success: v.literal(false), error: v.string() })
+  ),
+  handler: async (ctx, args) => {
+    // Check if there are any existing admins
+    const existingAdmins = await ctx.db
+      .query("users")
+      .withIndex("by_role", (q) => q.eq("role", "admin"))
+      .collect();
+
+    if (existingAdmins.length > 0) {
+      return { success: false as const, error: "Admin already exists. Use Convex Dashboard to manage admins." };
+    }
+
+    // Find the user by email
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email.toLowerCase()))
+      .unique();
+
+    if (!user) {
+      return { success: false as const, error: "User not found" };
+    }
+
+    // Promote to admin
+    await ctx.db.patch(user._id, { role: "admin" });
+
+    return { success: true as const };
+  },
+});

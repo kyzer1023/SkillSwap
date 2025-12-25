@@ -421,7 +421,7 @@ export function ProfilePage() {
           {/* Recent Reviews */}
           <Card>
             <CardHeader>
-              <CardTitle>Recent Reviews</CardTitle>
+              <CardTitle>Recent Feedbacks</CardTitle>
             </CardHeader>
             <CardContent>
               {ratings && ratings.length > 0 ? (
@@ -506,9 +506,9 @@ export function ProfilePage() {
       <Dialog open={!!respondingTo} onOpenChange={() => setRespondingTo(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Respond to Review</DialogTitle>
+            <DialogTitle>Respond to Feedback</DialogTitle>
             <DialogDescription>
-              Write a response to {respondingTo?.raterName}'s review. This will be visible to everyone.
+              Write a response to {respondingTo?.raterName}'s feedback. This will be visible to everyone.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">

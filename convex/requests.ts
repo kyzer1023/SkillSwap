@@ -241,7 +241,7 @@ export const createRequest = mutation({
       }
     }
 
-    // Validate skill offered if skill swap mode
+    // Validate skill offered if skill swap dataModel
     if (args.exchangeMode === "skill_swap" && !args.skillOffered) {
       return {
         success: false as const,

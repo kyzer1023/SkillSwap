@@ -47,6 +47,7 @@ type ReportType = {
   reportType: "request" | "feedback" | "user";
   targetId: string;
   targetName: string;
+  raterName?: string;
   reason: string;
   status: string;
 };
@@ -337,6 +338,12 @@ export function AdminReportsPage() {
               <span className="text-sm text-muted-foreground">Target:</span>
               <p className="font-medium">{viewingReport?.targetName}</p>
             </div>
+            {viewingReport?.reportType === "feedback" && viewingReport?.raterName && (
+              <div>
+                <span className="text-sm text-muted-foreground">Comment by:</span>
+                <p className="font-medium">{viewingReport.raterName}</p>
+              </div>
+            )}
             <div>
               <span className="text-sm text-muted-foreground">Reason:</span>
               <p className="p-3 bg-muted rounded-lg mt-1">
@@ -408,6 +415,11 @@ export function AdminReportsPage() {
             <p className="text-sm text-muted-foreground">
               Target: <span className="font-medium text-foreground">{viewingReport?.targetName}</span>
             </p>
+            {viewingReport?.reportType === "feedback" && viewingReport?.raterName && (
+              <p className="text-sm text-muted-foreground">
+                Comment by: <span className="font-medium text-foreground">{viewingReport.raterName}</span>
+              </p>
+            )}
             <div className="space-y-2">
               <Label htmlFor="suspend-days">Suspension Duration</Label>
               <Select
