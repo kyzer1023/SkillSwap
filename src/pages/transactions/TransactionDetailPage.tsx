@@ -680,12 +680,12 @@ export function TransactionDetailPage() {
           )}
 
           {/* Rating - After completion */}
-          {transaction.status === "completed" && canRate?.canRate && (
+          {transaction.status === "completed" && (
             <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" className="w-full gap-2">
-                  <Star className="h-4 w-4" />
-                  Leave Feedback
+                  <Star className={`h-4 w-4 ${canRate?.canRate === false ? "fill-amber-400 text-amber-400" : ""}`} />
+                  {canRate?.canRate === false ? "Update Feedback" : "Leave Feedback"}
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">

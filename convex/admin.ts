@@ -186,6 +186,7 @@ export const getPendingReports = query({
       ),
       targetId: v.string(),
       targetName: v.string(),
+      raterName: v.optional(v.string()),
       reason: v.string(),
       status: v.union(
         v.literal("pending"),
@@ -211,6 +212,7 @@ export const getPendingReports = query({
         
         // Resolve targetId to a human-readable name based on reportType
         let targetName = "Unknown";
+        let raterName: string | undefined = undefined;
         try {
           if (report.reportType === "user") {
             const targetUser = await ctx.db.get(report.targetId as Id<"users">);
@@ -222,7 +224,9 @@ export const getPendingReports = query({
             const targetRating = await ctx.db.get(report.targetId as Id<"ratings">);
             if (targetRating) {
               const ratee = await ctx.db.get(targetRating.rateeId);
+              const rater = await ctx.db.get(targetRating.raterId);
               targetName = `Feedback for ${ratee?.name ?? "Unknown User"}`;
+              raterName = rater?.name ?? "Unknown User";
             }
           }
         } catch {
@@ -237,6 +241,7 @@ export const getPendingReports = query({
           reportType: report.reportType,
           targetId: report.targetId,
           targetName,
+          raterName,
           reason: report.reason,
           status: report.status,
         };

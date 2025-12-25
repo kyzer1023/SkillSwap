@@ -189,7 +189,7 @@ export const submitRating = mutation({
       return { success: false as const, error: "Transaction not completed" };
     }
 
-    // Check if already rated
+    // Check if already rated - if so, update instead of inserting
     const existingRatings = await ctx.db
       .query("ratings")
       .withIndex("by_transactionId", (q) =>
@@ -197,13 +197,9 @@ export const submitRating = mutation({
       )
       .collect();
 
-    const alreadyRated = existingRatings.some(
+    const existingRating = existingRatings.find(
       (r) => r.raterId === session.userId
     );
-
-    if (alreadyRated) {
-      return { success: false as const, error: "Already rated" };
-    }
 
     // Validate rating
     if (args.rating < 1 || args.rating > 5) {
@@ -212,6 +208,17 @@ export const submitRating = mutation({
 
     const rateeId = isRequester ? tx.providerId : tx.requesterId;
     const raterRole = isRequester ? "requester" : "provider";
+
+    // If already rated, update the existing rating
+    if (existingRating) {
+      await ctx.db.patch(existingRating._id, {
+        rating: args.rating,
+        comment: args.comment,
+      });
+
+      return { success: true as const, ratingId: existingRating._id };
+    }
+    // Insert new rating
 
     const ratingId = await ctx.db.insert("ratings", {
       transactionId: args.transactionId,
