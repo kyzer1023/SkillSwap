@@ -44,6 +44,10 @@ import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
 import { AdminFraudAlertsPage } from "@/pages/admin/AdminFraudAlertsPage";
 import { AdminActivityLogPage } from "@/pages/admin/AdminActivityLogPage";
 
+// Legal Pages
+import { TermsAndConditionsPage } from "@/pages/legal/TermsAndConditionsPage";
+import { PrivacyPolicyPage } from "@/pages/legal/PrivacyPolicyPage";
+
 // User-only Route Component (excludes admins from user features)
 function UserRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated());
@@ -82,6 +86,8 @@ export default function App() {
     <Routes>
       {/* Public Routes */}
       <Route path="/" element={<HomePage />} />
+      <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
 
       {/* Auth Routes */}
       <Route element={<AuthLayout />}>
